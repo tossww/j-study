@@ -149,7 +149,7 @@ M5 complete + post-M5 enhancement.
 
 ### M5 [Core, UI] - Upload Enhancements & Prompt Config
 **Completed:** 2026-01-13
-**Commit:** 5bbdf44
+**Commit:** e72a469
 Enhanced upload with additional instructions and customizable AI prompts. Options page at /options for viewing/editing AI prompt with reset to default. Settings accessible via gear icon on home page. Post-M5 enhancement: Always-visible AI generation section on edit page with instructions-only generation support (file optional). New `/api/generate` endpoint.
 
 ### M4 [UI] - Deck Editing

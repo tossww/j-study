@@ -6,6 +6,25 @@
 
 ## Session Log
 
+## 2026-01-13 17:01 - Session Handoff
+**Milestone:** M5 - Upload Enhancements & Prompt Config
+**Summary:** Complete M5 with additional instructions, options page, and post-M5 enhancement for always-visible AI generation
+**Completed:**
+- Additional instructions textarea on upload (new + existing decks)
+- Options page at /options with AI prompt editor (view/edit/reset to default)
+- Settings gear icon on home page
+- Always-visible AI generation section on edit page (Boss request)
+- Instructions-only generation (file now optional)
+- New /api/generate endpoint
+**Key Decisions:**
+- Custom prompts stored in localStorage (simple, no DB change needed)
+- AI section on edit page always visible per Boss request
+- File upload made optional for generation
+**Committed:** e72a469
+**Next Focus:** All milestones M0-M5 complete. Define M6+ if needed.
+
+---
+
 ## 2026-01-13 16:21 - Session Handoff
 **Milestone:** M1, M2, M3 - All Complete
 **Summary:** Tested and verified M1 (upload flow), M2 (study mode), built and tested M3 (stats & organization)
