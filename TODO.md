@@ -16,7 +16,8 @@
 - **M0** [Core] Project Setup → `DONE`
 - **M1** [Core, UI] File Upload & AI Generation → `DONE`
 - **M2** [UI] Study Mode Polish → `DONE`
-- **M3** [UI] Statistics & Organization → `ACTIVE`
+- **M3** [UI] Statistics & Organization → `DONE`
+- **M4** [UI] Deck Editing → `READY`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -27,23 +28,16 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13 16:15
+**Last Session:** 2026-01-13 16:21
 
-**Milestone:** M3 - Statistics & Organization (Starting)
+M3 complete. All milestones M0-M3 done. App is fully functional with upload, study, stats, and deck management.
 
-**What happened:**
-Verified M2 - Study Mode Polish. All features already implemented and working:
-- Card flip animation (CSS 3D transform)
-- Progress bar showing position in deck
-- Know/Don't Know buttons updating SRS (SM-2 algorithm)
-- Session summary with accuracy stats
-- Restart session functionality
-
-**Next up:** M3 - Statistics & Organization
+**Next up:** M4 - Deck Editing (rename decks, edit individual cards)
 
 ### UI
-**Last Session:** 2024-12-24
-Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip animation), StudySession (progress tracking), DeckList. Pages created for home, upload, and study.
+**Last Session:** 2026-01-13 16:21
+
+M3 complete. Stats bar with streak/accuracy, deck deletion, per-deck accuracy stats all working.
 
 ---
 
@@ -105,16 +99,35 @@ Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip anim
 **What:** Track progress and organize decks
 
 **Test Criteria:**
-- [ ] Can see all decks with card counts
-- [ ] Can delete a deck
-- [ ] Study streak tracking
-- [ ] Accuracy statistics per deck
+- [x] Can see all decks with card counts
+- [x] Can delete a deck
+- [x] Study streak tracking
+- [x] Accuracy statistics per deck
+
+**Status:** DONE
+
+---
+
+### M4 [UI] - Deck Editing
+
+**What:** Edit and manage existing decks
+
+**Test Criteria:**
+- [ ] Can rename a deck
+- [ ] Can edit individual flashcard front/back
+- [ ] Can delete individual flashcards
+- [ ] Can add new cards to existing deck manually
 
 **Status:** READY
 
 ---
 
 ## Completed Milestones
+
+### M3 [UI] - Statistics & Organization
+**Completed:** 2026-01-13
+**Commit:** (pending)
+Stats bar with streak/cards studied/accuracy. Deck list with card counts and per-deck accuracy. Delete deck with confirmation. Study streak calculation based on daily activity.
 
 ### M2 [UI] - Study Mode Polish
 **Completed:** 2026-01-13

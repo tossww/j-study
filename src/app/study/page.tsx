@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
 import DeckList from '@/components/DeckList'
+import StatsBar from '@/components/StatsBar'
 import StudySessionWrapper from './StudySessionWrapper'
 
 export default async function StudyPage({
@@ -34,7 +35,10 @@ export default async function StudyPage({
           {deckId ? (
             <StudySessionWrapper deckId={deckId} />
           ) : (
-            <DeckList />
+            <>
+              <StatsBar />
+              <DeckList />
+            </>
           )}
         </Suspense>
       </div>
