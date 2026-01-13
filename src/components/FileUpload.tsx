@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import UploadResult from './UploadResult'
 import type { DeckAnalysis } from '@/db/schema'
+import { PROMPT_STORAGE_KEY } from '@/lib/prompt-config'
 
 interface UploadResponse {
   success: boolean
@@ -16,12 +17,21 @@ interface UploadResponse {
 export default function FileUpload() {
   const [file, setFile] = useState<File | null>(null)
   const [deckName, setDeckName] = useState('')
+  const [additionalInstructions, setAdditionalInstructions] = useState('')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
   const [showUploader, setShowUploader] = useState(true)
+  const [customPrompt, setCustomPrompt] = useState<string | null>(null)
   const router = useRouter()
+
+  useEffect(() => {
+    const stored = localStorage.getItem(PROMPT_STORAGE_KEY)
+    if (stored) {
+      setCustomPrompt(stored)
+    }
+  }, [])
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -70,6 +80,14 @@ export default function FileUpload() {
 
       if (generateAnswers) {
         formData.append('generateAnswers', 'true')
+      }
+
+      if (additionalInstructions.trim()) {
+        formData.append('additionalInstructions', additionalInstructions.trim())
+      }
+
+      if (customPrompt) {
+        formData.append('customPrompt', customPrompt)
       }
 
       const response = await fetch('/api/upload', {
@@ -221,6 +239,23 @@ export default function FileUpload() {
           </div>
         )}
       </div>
+
+      {/* Additional instructions */}
+      {file && (
+        <div className="mt-4">
+          <label htmlFor="instructions" className="block text-sm font-medium text-gray-700 mb-1">
+            Additional Instructions (optional)
+          </label>
+          <textarea
+            id="instructions"
+            value={additionalInstructions}
+            onChange={(e) => setAdditionalInstructions(e.target.value)}
+            placeholder="e.g., Focus on vocabulary terms, include Japanese readings, emphasize key formulas..."
+            rows={3}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-sm"
+          />
+        </div>
+      )}
 
       {/* Error message */}
       {error && (

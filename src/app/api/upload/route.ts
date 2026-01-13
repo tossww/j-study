@@ -11,6 +11,8 @@ export async function POST(request: NextRequest) {
     const deckName = formData.get('deckName') as string | null
     const deckIdStr = formData.get('deckId') as string | null
     const generateAnswers = formData.get('generateAnswers') === 'true'
+    const additionalInstructions = formData.get('additionalInstructions') as string | null
+    const customPrompt = formData.get('customPrompt') as string | null
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -79,7 +81,10 @@ export async function POST(request: NextRequest) {
     const result = await analyzeAndGenerateFlashcards(
       content,
       existingCardSummary,
-      generateAnswers
+      generateAnswers,
+      20,
+      additionalInstructions || undefined,
+      customPrompt || undefined
     )
 
     if (result.flashcards.length === 0) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
+import { PROMPT_STORAGE_KEY } from '@/lib/prompt-config'
 
 interface Deck {
   id: number
@@ -46,6 +47,12 @@ export default function EditDeckPage({
   const [newFront, setNewFront] = useState('')
   const [newBack, setNewBack] = useState('')
   const [addingCard, setAddingCard] = useState(false)
+
+  // AI generation state
+  const [aiInstructions, setAiInstructions] = useState('')
+  const [aiFile, setAiFile] = useState<File | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -182,6 +189,75 @@ export default function EditDeckPage({
     }
   }
 
+  const handleAiGenerate = async () => {
+    if (!aiInstructions.trim() && !aiFile) return
+
+    setGenerating(true)
+    setAiError(null)
+
+    try {
+      const customPrompt = localStorage.getItem(PROMPT_STORAGE_KEY)
+
+      if (aiFile) {
+        // File-based generation
+        const formData = new FormData()
+        formData.append('file', aiFile)
+        formData.append('deckId', deckId.toString())
+
+        if (aiInstructions.trim()) {
+          formData.append('additionalInstructions', aiInstructions.trim())
+        }
+
+        if (customPrompt) {
+          formData.append('customPrompt', customPrompt)
+        }
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Generation failed')
+        }
+      } else {
+        // Instructions-only generation
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deckId,
+            instructions: aiInstructions.trim(),
+            customPrompt: customPrompt || undefined,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Generation failed')
+        }
+      }
+
+      // Refresh cards list
+      const cardsRes = await fetch(`/api/flashcards/${deckId}`)
+      if (cardsRes.ok) {
+        const cardsData = await cardsRes.json()
+        setCards(cardsData)
+      }
+
+      // Reset state
+      setAiFile(null)
+      setAiInstructions('')
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Generation failed')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen p-8 flex items-center justify-center">
@@ -288,14 +364,107 @@ export default function EditDeckPage({
           )}
         </div>
 
-        {/* Flashcards */}
+        {/* AI Generate Section - Always visible */}
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <h3 className="font-medium text-gray-800">AI Generate Cards</h3>
+          </div>
+
+          <div className="space-y-3">
+            {/* Instructions textarea - always visible */}
+            <div>
+              <textarea
+                value={aiInstructions}
+                onChange={(e) => setAiInstructions(e.target.value)}
+                placeholder="Tell the AI what cards to create... e.g., 'Generate 5 cards about Japanese verb conjugation' or 'Create vocabulary cards for JLPT N3 grammar'"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
+
+            {/* Optional file upload */}
+            <div className="flex items-center gap-3">
+              <div
+                className={`relative flex-1 border-2 border-dashed rounded-lg p-3 text-center transition-colors cursor-pointer ${
+                  aiFile
+                    ? 'border-green-400 bg-green-50'
+                    : 'border-gray-300 hover:border-blue-400 bg-white'
+                }`}
+              >
+                <input
+                  type="file"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      setAiFile(e.target.files[0])
+                      setAiError(null)
+                    }
+                  }}
+                  accept=".pdf,.txt,.md,.markdown"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                {aiFile ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm text-gray-600">{aiFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setAiFile(null)
+                      }}
+                      className="ml-2 text-gray-400 hover:text-red-500"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">+ Add file (optional)</p>
+                )}
+              </div>
+            </div>
+
+            {/* Error message */}
+            {aiError && (
+              <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{aiError}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleAiGenerate}
+              disabled={generating || (!aiInstructions.trim() && !aiFile)}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Generating...
+                </span>
+              ) : (
+                'Generate Cards'
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Flashcards Header */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Flashcards</h2>
           <button
             onClick={() => setShowAddCard(true)}
             className="px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
           >
-            + Add Card
+            + Add Card Manually
           </button>
         </div>
 

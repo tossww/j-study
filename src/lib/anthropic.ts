@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { DeckAnalysis } from '@/db/schema'
+import { DEFAULT_PROMPT } from './prompt-config'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -70,7 +71,9 @@ export async function analyzeAndGenerateFlashcards(
   content: string,
   existingCards?: ExistingCardSummary,
   generateAnswers: boolean = false,
-  maxCards: number = 20
+  maxCards: number = 20,
+  additionalInstructions?: string,
+  customPrompt?: string
 ): Promise<AnalysisResult> {
   const existingCardsContext = existingCards
     ? `
@@ -88,27 +91,29 @@ SPECIAL INSTRUCTION: This content contains questions. Generate comprehensive ans
 `
     : ''
 
+  const userInstructions = additionalInstructions
+    ? `
+USER INSTRUCTIONS (follow these carefully):
+${additionalInstructions}
+`
+    : ''
+
+  // Use custom prompt if provided, otherwise use default
+  const basePrompt = customPrompt || DEFAULT_PROMPT
+
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 4096,
     messages: [
       {
         role: 'user',
-        content: `You are a study assistant that analyzes educational content and creates flashcards.
+        content: `${basePrompt}
 
-STEP 1 - ANALYZE THE CONTENT:
-1. Identify the content type (notes, questions, textbook, slides, or other)
-2. List the main topics covered
-3. Assess coverage level (sparse, moderate, good, comprehensive)
-4. Suggest what additional materials would help (be specific and helpful)
-5. If this appears to be a question sheet without answers, flag it for answer generation
-
-STEP 2 - GENERATE FLASHCARDS:
-- Create up to ${maxCards} high-quality Q&A flashcards
-- Focus on key concepts, definitions, and important facts
-- Each card should have a clear question and concise answer
+PARAMETERS:
+- Maximum cards to generate: ${maxCards}
 ${existingCards ? '- IMPORTANT: Avoid creating cards that duplicate existing topics' : ''}
 ${generateAnswersInstruction}
+${userInstructions}
 ${existingCardsContext}
 
 CONTENT TO ANALYZE:
@@ -159,5 +164,84 @@ Return ONLY the JSON object, no other text.`
   } catch (e) {
     console.error('Failed to parse AI response:', textContent.text.slice(0, 500))
     throw new Error('Failed to parse analysis from AI response')
+  }
+}
+
+export interface SimpleGenerationResult {
+  flashcards: GeneratedFlashcard[]
+}
+
+export async function generateFromInstructions(
+  instructions: string,
+  existingCards?: ExistingCardSummary,
+  maxCards: number = 10,
+  customPrompt?: string
+): Promise<SimpleGenerationResult> {
+  const existingCardsContext = existingCards
+    ? `
+EXISTING CARDS IN DECK (avoid duplicating these topics):
+- Total cards: ${existingCards.totalCount}
+- Topics already covered: ${existingCards.topics.join(', ')}
+- Sample existing cards:
+${existingCards.sampleCards.slice(0, 3).map(c => `  Q: ${c.front}\n  A: ${c.back}`).join('\n')}
+`
+    : ''
+
+  const basePrompt = customPrompt || `You are a study assistant that creates high-quality flashcards based on user instructions.`
+
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    messages: [
+      {
+        role: 'user',
+        content: `${basePrompt}
+
+USER INSTRUCTIONS:
+${instructions}
+
+PARAMETERS:
+- Generate up to ${maxCards} flashcards based on the instructions above
+- Each card should have a clear question (front) and concise answer (back)
+- Focus on the specific topic or style the user requested
+${existingCards ? '- IMPORTANT: Avoid creating cards that duplicate existing topics' : ''}
+${existingCardsContext}
+
+Return your response as a JSON object with this structure:
+{
+  "flashcards": [
+    {"front": "Question here", "back": "Answer here"},
+    ...
+  ]
+}
+
+Return ONLY the JSON object, no other text.`
+      }
+    ],
+  })
+
+  const textContent = message.content.find(block => block.type === 'text')
+  if (!textContent || textContent.type !== 'text') {
+    throw new Error('No text content in response')
+  }
+
+  try {
+    let jsonText = textContent.text.trim()
+
+    if (jsonText.startsWith('```json')) {
+      jsonText = jsonText.slice(7)
+    } else if (jsonText.startsWith('```')) {
+      jsonText = jsonText.slice(3)
+    }
+    if (jsonText.endsWith('```')) {
+      jsonText = jsonText.slice(0, -3)
+    }
+    jsonText = jsonText.trim()
+
+    const result = JSON.parse(jsonText) as SimpleGenerationResult
+    return result
+  } catch (e) {
+    console.error('Failed to parse AI response:', textContent.text.slice(0, 500))
+    throw new Error('Failed to parse generation from AI response')
   }
 }

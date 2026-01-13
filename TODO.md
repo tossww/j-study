@@ -18,7 +18,7 @@
 - **M2** [UI] Study Mode Polish → `DONE`
 - **M3** [UI] Statistics & Organization → `DONE`
 - **M4** [UI] Deck Editing → `DONE`
-- **M5** [Core, UI] Upload Enhancements & Prompt Config → `READY`
+- **M5** [Core, UI] Upload Enhancements & Prompt Config → `DONE`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -29,19 +29,22 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13 17:00
+**Last Session:** 2026-01-13 17:01
 
-M4 complete. Added deck editing functionality:
-- GET/PATCH endpoints for individual decks
-- POST/PATCH/DELETE endpoints for flashcards
-- Edit page at /edit/[deckId] with full CRUD for deck and cards
-
-**Next up:** M5 - Upload Enhancements & Prompt Config
+M5 complete + post-M5 enhancement.
+- New `/api/generate` endpoint for instructions-only AI card generation
+- `generateFromInstructions()` function in anthropic.ts
+- Custom prompt support via localStorage throughout
 
 ### UI
-**Last Session:** 2026-01-13 17:00
+**Last Session:** 2026-01-13 17:01
 
-M4 complete. DeckList now has edit button. Edit page allows renaming deck, editing card front/back, deleting cards, and adding new cards manually.
+M5 complete + post-M5 enhancement.
+- Edit page now has always-visible "AI Generate Cards" section (not behind toggle)
+- Instructions textarea always shown - type prompt, hit generate
+- File upload is optional (below textarea)
+- Options page at /options for AI prompt customization
+- Settings gear icon on home page
 
 ---
 
@@ -131,18 +134,23 @@ M4 complete. DeckList now has edit button. Edit page allows renaming deck, editi
 **What:** Enhanced upload flow with additional instructions and configurable AI prompts
 
 **Test Criteria:**
-- [ ] Can upload new material when editing an existing deck (adds cards to deck)
-- [ ] Textbox for additional instructions appears when uploading (new or existing deck)
-- [ ] AI uses additional instructions when generating flashcards
-- [ ] Options page shows current AI prompt (readable)
-- [ ] Can edit the AI prompt in options
-- [ ] Can restore AI prompt to default after editing
+- [x] Can upload new material when editing an existing deck (adds cards to deck)
+- [x] Textbox for additional instructions appears when uploading (new or existing deck)
+- [x] AI uses additional instructions when generating flashcards
+- [x] Options page shows current AI prompt (readable)
+- [x] Can edit the AI prompt in options
+- [x] Can restore AI prompt to default after editing
 
-**Status:** READY
+**Status:** DONE
 
 ---
 
 ## Completed Milestones
+
+### M5 [Core, UI] - Upload Enhancements & Prompt Config
+**Completed:** 2026-01-13
+**Commit:** 5bbdf44
+Enhanced upload with additional instructions and customizable AI prompts. Options page at /options for viewing/editing AI prompt with reset to default. Settings accessible via gear icon on home page. Post-M5 enhancement: Always-visible AI generation section on edit page with instructions-only generation support (file optional). New `/api/generate` endpoint.
 
 ### M4 [UI] - Deck Editing
 **Completed:** 2026-01-13
