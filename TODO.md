@@ -126,7 +126,7 @@ M3 complete. Stats bar with streak/accuracy, deck deletion, per-deck accuracy st
 
 ### M3 [UI] - Statistics & Organization
 **Completed:** 2026-01-13
-**Commit:** (pending)
+**Commit:** a32394e
 Stats bar with streak/cards studied/accuracy. Deck list with card counts and per-deck accuracy. Delete deck with confirmation. Study streak calculation based on daily activity.
 
 ### M2 [UI] - Study Mode Polish
