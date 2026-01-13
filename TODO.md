@@ -158,7 +158,7 @@ M6 complete. "Create New Deck" page redesigned (instructions-first, file optiona
 
 ### M6 [UI] - Unified Deck Creation + UX Fixes
 **Completed:** 2026-01-13
-**Commit:** (pending)
+**Commit:** e035315
 Redesigned "Create New Deck" page with instructions-first UX (file optional). API updated to create new decks from instructions only. Added success toast to edit deck AI generation, exit button to study mode, and "Back to Decks" button on session complete.
 
 ### M5 [Core, UI] - Upload Enhancements & Prompt Config

@@ -6,6 +6,25 @@
 
 ## Session Log
 
+## 2026-01-13 17:42 - Session Handoff
+**Milestone:** M6 - Unified Deck Creation + UX Fixes
+**Summary:** Complete UX audit → scoped M6 → implemented unified deck creation with instructions-first approach + critical UX fixes
+**Completed:**
+- Ran comprehensive UI/UX audit via subagent
+- Redesigned "Create New Deck" page (instructions-first, file optional)
+- Updated /api/generate to support new deck creation
+- Added success toast to edit deck AI generation
+- Added exit button to study mode
+- Added "Back to Decks" button on session complete
+**Key Decisions:**
+- Bundled UX audit fixes with unified deck creation into single milestone
+- Instructions textarea always visible, file upload secondary
+- Deck name derived from instructions if not provided
+**Committed:** ed91126 (milestone), e035315 (implementation)
+**Next Focus:** All milestones M0-M6 complete. Ready for production use or new features.
+
+---
+
 ## 2026-01-13 17:01 - Session Handoff
 **Milestone:** M5 - Upload Enhancements & Prompt Config
 **Summary:** Complete M5 with additional instructions, options page, and post-M5 enhancement for always-visible AI generation
