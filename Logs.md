@@ -14,8 +14,8 @@
 - Added content type detection, topic extraction, coverage assessment
 - Built UploadResult component with AI analysis display
 - Added "add more to deck" flow and question-sheet answer generation
-**Committed:** (none - all changes uncommitted!)
-**Next Focus:** Commit changes, test upload flow, verify M1 test criteria
+**Committed:** e9b056e
+**Next Focus:** Test upload flow in browser, verify M1 test criteria, run DB migration if needed
 
 ---
 
