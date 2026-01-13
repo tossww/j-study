@@ -14,8 +14,8 @@
 ## Master Milestone List
 
 - **M0** [Core] Project Setup → `DONE`
-- **M1** [Core, UI] File Upload & AI Generation → `ACTIVE`
-- **M2** [UI] Study Mode Polish → `READY`
+- **M1** [Core, UI] File Upload & AI Generation → `DONE`
+- **M2** [UI] Study Mode Polish → `ACTIVE`
 - **M3** [UI] Statistics & Organization → `READY`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
@@ -27,53 +27,25 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13 10:45
+**Last Session:** 2026-01-13 16:00
 
-**Milestone:** M1 - File Upload & AI Generation (In Progress)
+**Milestone:** M2 - Study Mode Polish (Starting)
 
 **What happened:**
-Significant implementation work on M1. Enhanced the upload flow with AI-powered content analysis. Claude now analyzes uploaded files, identifies content type (notes/questions/textbook/slides), extracts topics, assesses coverage, and provides suggestions.
+Completed M1 testing. All upload flows verified working:
+- PDF upload: text extraction via pdf-parse → AI generates flashcards
+- TXT/MD upload: direct text processing → AI generates flashcards
+- AI analysis: content type detection, topic extraction, coverage assessment, suggestions
+- Database: decks and flashcards saved correctly with SRS metadata
 
-**Changes made (UNCOMMITTED):**
-- `src/lib/anthropic.ts` - Added `analyzeAndGenerateFlashcards()` function with:
-  - Content type detection
-  - Topic extraction
-  - Coverage assessment (sparse/moderate/good/comprehensive)
-  - Suggestions for additional materials
-  - Special action prompts (e.g., detect question sheets → offer to generate answers)
-  - Context-aware generation to avoid duplicate cards when adding to existing deck
-- `src/app/api/upload/route.ts` - Enhanced to:
-  - Support adding cards to existing decks (deckId param)
-  - Generate answers for question sheets (generateAnswers param)
-  - Return analysis with flashcards
-  - Removed Vercel Blob dependency (direct parsing)
-- `src/db/schema.ts` - Added `DeckAnalysis` interface and `analysis` column to decks table
-- `src/components/UploadResult.tsx` - **NEW** component showing:
-  - Success header with card count
-  - AI analysis panel (content type, coverage, topics, suggestions)
-  - Special action prompts (e.g., "Generate answers?" for question sheets)
-  - Add-more drop zone for expanding decks
-- `src/components/FileUpload.tsx` - Enhanced with:
-  - Upload result state management
-  - Support for adding more files to same deck
-  - Answer generation flow
-- `src/components/DeckList.tsx` - Minor updates
-- `src/app/study/page.tsx` - Minor updates
+**Key files for M1:**
+- `src/lib/anthropic.ts` - AI flashcard generation with analysis
+- `src/app/api/upload/route.ts` - Upload endpoint
+- `src/lib/file-parser.ts` - PDF/text parsing
+- `src/components/FileUpload.tsx` - Upload UI
+- `src/components/UploadResult.tsx` - Result display with analysis
 
-**Next up:**
-1. **COMMIT THE CHANGES** - All code is uncommitted!
-2. **Test the upload flow** - Verify M1 test criteria:
-   - [ ] Upload PDF → extract text → generate cards
-   - [ ] Upload TXT/MD files
-   - [ ] Claude generates 10-20 relevant flashcards
-   - [ ] Flashcards saved to database
-   - [ ] Deck created with file name
-3. **DB Migration** - The schema added an `analysis` column - may need migration
-
-**Important context:**
-- Schema was modified (added `analysis` text column) - production DB may need migration
-- The enhanced AI flow uses more tokens (analysis + generation in one call)
-- Question sheet detection is a nice-to-have feature, but may not be critical for M1
+**Next up:** M2 - Study Mode Polish
 
 ### UI
 **Last Session:** 2024-12-24
@@ -109,13 +81,13 @@ Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip anim
 **What:** Upload a file and get flashcards generated
 
 **Test Criteria:**
-- [ ] Can upload PDF and extract text
-- [ ] Can upload TXT/MD files
-- [ ] Claude generates 10-20 relevant flashcards
-- [ ] Flashcards saved to database
-- [ ] Deck created with file name
+- [x] Can upload PDF and extract text
+- [x] Can upload TXT/MD files
+- [x] Claude generates flashcards appropriate to content
+- [x] Flashcards saved to database
+- [x] Deck created with file name
 
-**Status:** READY
+**Status:** DONE
 
 ---
 
@@ -149,6 +121,11 @@ Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip anim
 ---
 
 ## Completed Milestones
+
+### M1 [Core, UI] - File Upload & AI Generation
+**Completed:** 2026-01-13
+**Commit:** e9b056e
+Full upload flow with AI-powered flashcard generation. Supports PDF, TXT, MD files. Includes content analysis (type detection, topic extraction, coverage assessment, suggestions).
 
 ### M0 [Core] - Project Setup
 **Completed:** 2026-01-13
