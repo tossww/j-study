@@ -4,9 +4,8 @@
 
 > Define components at project start. **One Claude session = One component. No overlap.**
 
-- **Auth** - Authentication and session management → `Free`
-- **API** - Backend endpoints and data layer → `Free`
-- **UI** - Frontend components and pages → `Free`
+- **Core** - Database, API routes, AI integration → `Free`
+- **UI** - Frontend pages and components → `Free`
 
 *Status: `Free` | `Locked` | `Blocked:M#`*
 
@@ -14,10 +13,10 @@
 
 ## Master Milestone List
 
-- **M1** [Auth] User Authentication → `READY`
-- **M2** [API] Core API Endpoints → `READY`
-- **M3** [UI] Dashboard Layout → `BLOCKED:M1`
-- **M4** [Auth, API] OAuth Integration → `READY` (depends: M1)
+- **M0** [Core] Project Setup → `DONE`
+- **M1** [Core, UI] File Upload & AI Generation → `READY`
+- **M2** [UI] Study Mode Polish → `READY`
+- **M3** [UI] Statistics & Organization → `READY`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -27,84 +26,89 @@
 
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
-### Auth
-*(No sessions yet)*
-
-### API
-*(No sessions yet)*
+### Core
+**Last Session:** 2026-01-13
+Completed Vercel deployment setup. Linked project to Vercel, created Neon Postgres database (j-study-db), added Anthropic API key, pushed DB schema, and verified production deployment at https://j-study-tossww.vercel.app. Fixed Next.js 15+ compatibility issues (params Promise, serverExternalPackages). Updated SETUP.md with two-path workflow (Admin vs Developer) so Jasmine's Claude knows to request .env.local file from Steven.
 
 ### UI
-*(No sessions yet)*
+**Last Session:** 2024-12-24
+Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip animation), StudySession (progress tracking), DeckList. Pages created for home, upload, and study.
 
 ---
 
 ## Milestone Details
 
-### M1 [Auth] - User Authentication
+### M0 [Core] - Project Setup
 
-**What:** Users can register and log in with email/password
-
-**Files to create:**
-- `src/auth/login.py`
-- `src/auth/register.py`
-- `tests/test_auth.py`
+**What:** Base project with all infrastructure ready
 
 **Test Criteria:**
-- [ ] User can create account
-- [ ] User can log in
-- [ ] Invalid credentials rejected
-- [ ] Session persists on refresh
+- [x] Next.js 14 project structure created
+- [x] Vercel Postgres schema defined (decks, flashcards, study_sessions)
+- [x] Drizzle ORM configured
+- [x] Anthropic API integration ready
+- [x] File parsing for PDF/text/markdown
+- [x] All API routes created
+- [x] Base UI components created
+- [x] Vercel deployment working
+- [x] Database connected on Vercel
 
-**Milestone Doc:** `milestones/M1.md`
+**Status:** DONE
+
+**Production URL:** https://j-study-tossww.vercel.app
+
+---
+
+### M1 [Core, UI] - File Upload & AI Generation
+
+**What:** Upload a file and get flashcards generated
+
+**Test Criteria:**
+- [ ] Can upload PDF and extract text
+- [ ] Can upload TXT/MD files
+- [ ] Claude generates 10-20 relevant flashcards
+- [ ] Flashcards saved to database
+- [ ] Deck created with file name
+
 **Status:** READY
 
 ---
 
-### M2 [API] - Core API Endpoints
+### M2 [UI] - Study Mode Polish
 
-**What:** CRUD operations for main data entities
+**What:** Make studying smooth and enjoyable
+
 **Test Criteria:**
-- [ ] Create entity returns 201
-- [ ] Read entity returns correct data
-- [ ] Update entity persists changes
-- [ ] Delete entity removes from DB
+- [ ] Card flip animation works smoothly
+- [ ] Progress bar shows position in deck
+- [ ] Know/Don't Know buttons update SRS
+- [ ] Session summary shows at end
+- [ ] Can restart session
 
-**Milestone Doc:** `milestones/M2.md`
 **Status:** READY
 
 ---
 
-### M3 [UI] - Dashboard Layout
+### M3 [UI] - Statistics & Organization
 
-**What:** Main dashboard with navigation and data display
+**What:** Track progress and organize decks
+
 **Test Criteria:**
-- [ ] Dashboard loads without errors
-- [ ] Navigation works between sections
-- [ ] Data displays correctly from API
+- [ ] Can see all decks with card counts
+- [ ] Can delete a deck
+- [ ] Study streak tracking
+- [ ] Accuracy statistics per deck
 
-**Milestone Doc:** `milestones/M3.md`
-**Status:** BLOCKED:M1
-**Depends:** M1 (needs auth to protect routes)
-
----
-
-### M4 [Auth, API] - OAuth Integration
-
-**What:** Users can log in via Google/GitHub OAuth
-**Test Criteria:**
-- [ ] OAuth redirect flow works
-- [ ] User created/linked on first OAuth login
-- [ ] Session created after OAuth success
-
-**Milestone Doc:** `milestones/M4.md`
 **Status:** READY
-**Note:** Multi-component milestone. Locks both Auth and API.
 
 ---
 
 ## Completed Milestones
 
-*(None yet)*
+### M0 [Core] - Project Setup
+**Completed:** 2024-12-24
+**Commit:** (pending)
+Base infrastructure set up with Next.js 14, Vercel Postgres, Anthropic integration.
 
 ---
 
@@ -116,14 +120,9 @@
 - If you notice component overlap, alert Boss immediately
 
 **Milestones:**
-- Work in order (M1 before M2)
-- Each milestone has a doc in `milestones/M#.md` defining HOW
-- TODO.md defines WHAT and TEST CRITERIA only
-
-**Testing:**
+- Work in order (M0 → M1 → M2 → M3)
+- Each milestone has clear test criteria
 - Milestone is DONE only when all test criteria pass
-- Unit tests for logic, integration tests for flows
-- Manual testing when needed
 
 **Status Flow:**
 ```

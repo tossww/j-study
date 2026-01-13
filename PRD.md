@@ -1,15 +1,15 @@
 # PRD - J-Study
 
-**Last Updated:** 2025-12-24
-**Status:** Milestone [X] of [Y]
+**Last Updated:** 2024-12-24
+**Status:** Milestone 0 of 3 (Setup)
 
 ---
 
 ## Vision
 
-J Study project
+A personal flashcard study app inspired by Gizmo. Upload study materials (PDFs, text files, markdown) and use AI to automatically generate flashcards. Study with spaced repetition tracking.
 
-**Target Users:** [Who is this for?]
+**Target Users:** J (personal use only, no auth required)
 
 ---
 
@@ -17,41 +17,51 @@ J Study project
 
 ### Core Features (Must Build)
 
-- [ ] **[Feature 1]:** [One-line description of what it does]
-- [ ] **[Feature 2]:** [One-line description of what it does]
-- [ ] **[Feature 3]:** [One-line description of what it does]
-- [ ] **[Feature 4]:** [One-line description of what it does]
+- [x] **File Upload:** Upload PDF, text, or markdown files for processing
+- [x] **AI Flashcard Generation:** Use Anthropic Claude to extract key concepts and generate Q&A flashcards
+- [x] **Flashcard Study Mode:** Flip cards, mark as known/unknown, track progress
+- [x] **Spaced Repetition:** Simple SRS to prioritize cards you don't know well
 
 ### Future Features (Nice-to-Have)
 
-- **[Feature A]:** [Description]
-- **[Feature B]:** [Description]
+- **Manual Card Creation:** Add flashcards manually without file upload
+- **Deck Organization:** Group flashcards into decks/subjects
+- **Export:** Export flashcards to CSV or Anki format
+- **Statistics:** Study streaks, accuracy graphs
 
 ### Not Building (Out of Scope)
 
-- **[Thing 1]:**
-- **[Thing 2]:**
+- **User Authentication:** Single user, no login needed
+- **Social Features:** No sharing, no friends, no leaderboards
+- **Mobile App:** Web only (responsive design works on mobile browser)
 
 ---
 
 ## Tech Stack
 
 **Frontend:**
-- [Framework/Language] - e.g., "React + TypeScript"
+- Next.js 14 (App Router) + TypeScript
+- Tailwind CSS for styling
+- React components
 
 **Backend:**
-- [Framework/Language] - e.g., "Node.js + Express"
+- Next.js API Routes (serverless functions)
+- Vercel Blob for file storage
 
 **Database:**
-- [Type] - e.g., "PostgreSQL"
+- Vercel Postgres (managed PostgreSQL)
+
+**AI:**
+- Anthropic Claude API (claude-sonnet-4-20250514 for flashcard generation)
 
 **Deployment:**
-- [Platform] - e.g., "Vercel"
+- Vercel (auto-deploy from GitHub)
+- All management via `vercel` CLI
 
-**Other:**
-- [Key libraries/services]
-
-*(Update this as tech decisions are made - this is a living section)*
+**CLI Tools Required:**
+- `vercel` - deployment, database, blob storage
+- `npm` - package management
+- `git` - version control
 
 ---
 
@@ -59,48 +69,68 @@ J Study project
 
 > **One Claude session = One component. No overlap allowed.**
 
-- **Auth** - Authentication, sessions, user management
-- **API** - Backend endpoints, data layer, business logic
-- **UI** - Frontend components, pages, styling
+- **Core** - Database schema, API routes, AI integration
+- **UI** - Frontend pages and components
 
 **Component Interactions:**
-- Auth ←→ API: Auth middleware validates requests
-- API ←→ UI: REST endpoints consumed by frontend
+- UI uploads file → API processes → AI generates cards → DB stores
+- UI fetches cards → displays study interface → updates progress in DB
 
 ---
 
 ## Milestones
 
-### Milestone 1: [Name]
+### Milestone 0: Project Setup (CURRENT)
 
-**Goal:** [What we're achieving in this milestone]
+**Goal:** Base project ready for development
 
 **Features:**
-- Feature 1: ⏳ In Progress
-- Feature 2: [ ] Not Started
+- Project structure with Next.js 14
+- Vercel Postgres configured
+- Vercel Blob configured
+- Anthropic API integration ready
+- Basic UI scaffolding
 
 **Status:** In Progress
 
 ---
 
-### Milestone 2: [Name]
+### Milestone 1: File Upload & AI Generation
 
-**Goal:** [What we're achieving]
+**Goal:** Upload a file and get flashcards
 
 **Features:**
-- Feature 3: [ ] Not Started
-- Feature 4: [ ] Not Started
+- File upload UI
+- PDF/text parsing
+- Claude API call to generate flashcards
+- Store flashcards in database
 
 **Status:** Not Started
 
 ---
 
-### Milestone 3: [Name]
+### Milestone 2: Study Mode
 
-**Goal:** [What we're achieving]
+**Goal:** Study flashcards with basic tracking
 
 **Features:**
-- Feature 5: [ ] Not Started
+- Flashcard flip interface
+- Know/Don't Know buttons
+- Progress tracking
+- Simple spaced repetition
+
+**Status:** Not Started
+
+---
+
+### Milestone 3: Polish
+
+**Goal:** Make it nice to use
+
+**Features:**
+- Better UI/UX
+- Deck organization
+- Statistics view
 
 **Status:** Not Started
 
@@ -109,54 +139,51 @@ J Study project
 ## Success Criteria
 
 **We're done when:**
-- [ ] User can [core action 1]
-- [ ] User can [core action 2]
-- [ ] System can [core capability 3]
-- [ ] [Performance target] - e.g., "Page loads in <2s"
-- [ ] [Quality target] - e.g., "All tests pass"
+- [x] Can upload a PDF or text file
+- [x] AI generates relevant flashcards from content
+- [x] Can study flashcards (flip, mark known/unknown)
+- [x] Progress persists between sessions
+- [x] Deploys to Vercel with `vercel --prod`
 
 ---
 
 ## Guidelines
 
 **Important Constraints:**
-- [Constraint 1] - e.g., "Must work offline"
-- [Constraint 2] - e.g., "No user data stored on server"
+- No authentication - single user app
+- All config via CLI, no web dashboards required
+- Keep dependencies minimal
 
 **Patterns to Follow:**
-- [Pattern 1] - e.g., "Use REST API, not GraphQL"
-- [Pattern 2] - e.g., "Mobile-first responsive design"
+- Use Server Components where possible
+- API routes for mutations
+- Tailwind for all styling (no CSS files)
 
 **Things to Avoid:**
-- [Anti-pattern 1] - e.g., "Don't use global state"
-- [Anti-pattern 2] - e.g., "Don't add features without PRD update"
+- Don't add auth libraries
+- Don't add unnecessary dependencies
+- Don't use external services beyond Vercel + Anthropic
 
 ---
 
-## Verification Checklist
+## CLI Workflow
 
-*Use this to verify code matches PRD:*
+```bash
+# Development
+npm run dev          # Start local dev server
 
-**For each feature:**
-1. Is the feature listed in PRD? (If no, add it or remove code)
-2. Does implementation match feature description?
-3. Are tests written and passing?
-4. Is feature marked complete in milestone?
+# Database
+vercel env pull      # Pull environment variables
+vercel postgres      # Manage database
 
-**For tech stack:**
-1. Is code using approved tech stack?
-2. Have we documented why if we deviated?
+# Deployment
+vercel              # Preview deployment
+vercel --prod       # Production deployment
 
----
-
-## Documentation Principle
-
-**Keep this PRD concise and high signal/noise:**
-- Focus on WHAT we're building, not HOW
-- Features in one line each
-- Guidelines should be actionable constraints
-- Update when requirements change, but keep it lean
+# Environment
+vercel env add      # Add new env variable
+```
 
 ---
 
-*This PRD is the source of truth. Code must match PRD. Update PRD when requirements change.*
+*This PRD is the source of truth. Code must match PRD.*

@@ -118,7 +118,7 @@
 **Milestones:**
 - Work in order (M1 before M2)
 - Each milestone has a doc in `milestones/M#.md` defining HOW
-- TODO.md defines WHAT and TEST CRITERIA only
+- TODO.md shows the list of functions
 
 **Testing:**
 - Milestone is DONE only when all test criteria pass
