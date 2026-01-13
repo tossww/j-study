@@ -19,6 +19,7 @@
 - **M3** [UI] Statistics & Organization → `DONE`
 - **M4** [UI] Deck Editing → `DONE`
 - **M5** [Core, UI] Upload Enhancements & Prompt Config → `DONE`
+- **M6** [UI] Unified Deck Creation + UX Fixes → `READY`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -142,6 +143,22 @@ M5 complete + post-M5 enhancement.
 - [x] Can restore AI prompt to default after editing
 
 **Status:** DONE
+
+---
+
+### M6 [UI] - Unified Deck Creation + UX Fixes
+
+**What:** Redesign "Create New Deck" to match edit deck UX (instructions-first, file optional) + fix critical UX issues from audit
+
+**Test Criteria:**
+- [ ] Create deck page: Instructions textarea always visible (not hidden until file selected)
+- [ ] Create deck page: File upload is optional (can generate from instructions only)
+- [ ] Create deck page: Can still create from file-only (backwards compatible)
+- [ ] Edit deck page: Success toast/feedback after AI generation completes
+- [ ] Study mode: Exit button visible to leave session early
+- [ ] Home page: Button text updated ("Create New Deck" instead of "Upload Study Material")
+
+**Status:** READY
 
 ---
 
