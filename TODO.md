@@ -15,8 +15,8 @@
 
 - **M0** [Core] Project Setup → `DONE`
 - **M1** [Core, UI] File Upload & AI Generation → `DONE`
-- **M2** [UI] Study Mode Polish → `ACTIVE`
-- **M3** [UI] Statistics & Organization → `READY`
+- **M2** [UI] Study Mode Polish → `DONE`
+- **M3** [UI] Statistics & Organization → `ACTIVE`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -27,25 +27,19 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13 16:00
+**Last Session:** 2026-01-13 16:15
 
-**Milestone:** M2 - Study Mode Polish (Starting)
+**Milestone:** M3 - Statistics & Organization (Starting)
 
 **What happened:**
-Completed M1 testing. All upload flows verified working:
-- PDF upload: text extraction via pdf-parse → AI generates flashcards
-- TXT/MD upload: direct text processing → AI generates flashcards
-- AI analysis: content type detection, topic extraction, coverage assessment, suggestions
-- Database: decks and flashcards saved correctly with SRS metadata
+Verified M2 - Study Mode Polish. All features already implemented and working:
+- Card flip animation (CSS 3D transform)
+- Progress bar showing position in deck
+- Know/Don't Know buttons updating SRS (SM-2 algorithm)
+- Session summary with accuracy stats
+- Restart session functionality
 
-**Key files for M1:**
-- `src/lib/anthropic.ts` - AI flashcard generation with analysis
-- `src/app/api/upload/route.ts` - Upload endpoint
-- `src/lib/file-parser.ts` - PDF/text parsing
-- `src/components/FileUpload.tsx` - Upload UI
-- `src/components/UploadResult.tsx` - Result display with analysis
-
-**Next up:** M2 - Study Mode Polish
+**Next up:** M3 - Statistics & Organization
 
 ### UI
 **Last Session:** 2024-12-24
@@ -96,13 +90,13 @@ Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip anim
 **What:** Make studying smooth and enjoyable
 
 **Test Criteria:**
-- [ ] Card flip animation works smoothly
-- [ ] Progress bar shows position in deck
-- [ ] Know/Don't Know buttons update SRS
-- [ ] Session summary shows at end
-- [ ] Can restart session
+- [x] Card flip animation works smoothly
+- [x] Progress bar shows position in deck
+- [x] Know/Don't Know buttons update SRS
+- [x] Session summary shows at end
+- [x] Can restart session
 
-**Status:** READY
+**Status:** DONE
 
 ---
 
@@ -121,6 +115,11 @@ Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip anim
 ---
 
 ## Completed Milestones
+
+### M2 [UI] - Study Mode Polish
+**Completed:** 2026-01-13
+**Commit:** (pre-existing)
+Study mode with smooth card flip animation, progress bar, SRS updates (SM-2), session summary, and restart functionality.
 
 ### M1 [Core, UI] - File Upload & AI Generation
 **Completed:** 2026-01-13
