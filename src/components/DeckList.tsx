@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface Deck {
   id: number
@@ -32,6 +33,7 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export default function DeckList() {
+  const router = useRouter()
   const [decks, setDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -109,43 +111,52 @@ export default function DeckList() {
       {decks.map((deck) => (
         <div
           key={deck.id}
-          className="relative p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-primary-200 transition-all"
+          onClick={() => router.push(`/study?deck=${deck.id}`)}
+          className="relative p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-primary-200 transition-all cursor-pointer"
         >
-          <Link href={`/study?deck=${deck.id}`} className="block">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 pr-8">
-                <h3 className="font-semibold text-gray-900">{deck.name}</h3>
-                {deck.description && (
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-1">{deck.description}</p>
+          <div className="flex justify-between items-start">
+            <div className="flex-1 pr-8">
+              <h3 className="font-semibold text-gray-900">{deck.name}</h3>
+              {deck.description && (
+                <p className="text-sm text-gray-500 mt-1 line-clamp-1">{deck.description}</p>
+              )}
+              <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                <span>Updated {formatRelativeTime(deck.updatedAt)}</span>
+                {deck.accuracy !== null && (
+                  <span className={deck.accuracy >= 70 ? 'text-green-600' : deck.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}>
+                    {deck.accuracy}% accuracy
+                  </span>
                 )}
-                <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                  <span>Updated {formatRelativeTime(deck.updatedAt)}</span>
-                  {deck.accuracy !== null && (
-                    <span className={deck.accuracy >= 70 ? 'text-green-600' : deck.accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}>
-                      {deck.accuracy}% accuracy
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">{deck.cardCount} cards</span>
-                <button
-                  onClick={(e) => handleDelete(e, deck.id, deck.name)}
-                  disabled={deletingId === deck.id}
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                  title="Delete deck"
-                >
-                  {deletingId === deck.id ? (
-                    <span className="block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  )}
-                </button>
               </div>
             </div>
-          </Link>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">{deck.cardCount} cards</span>
+              <Link
+                href={`/edit/${deck.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
+                title="Edit deck"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </Link>
+              <button
+                onClick={(e) => handleDelete(e, deck.id, deck.name)}
+                disabled={deletingId === deck.id}
+                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                title="Delete deck"
+              >
+                {deletingId === deck.id ? (
+                  <span className="block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       ))}
     </div>

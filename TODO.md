@@ -17,7 +17,8 @@
 - **M1** [Core, UI] File Upload & AI Generation → `DONE`
 - **M2** [UI] Study Mode Polish → `DONE`
 - **M3** [UI] Statistics & Organization → `DONE`
-- **M4** [UI] Deck Editing → `READY`
+- **M4** [UI] Deck Editing → `DONE`
+- **M5** [Core, UI] Upload Enhancements & Prompt Config → `READY`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -28,16 +29,19 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13 16:21
+**Last Session:** 2026-01-13 17:00
 
-M3 complete. All milestones M0-M3 done. App is fully functional with upload, study, stats, and deck management.
+M4 complete. Added deck editing functionality:
+- GET/PATCH endpoints for individual decks
+- POST/PATCH/DELETE endpoints for flashcards
+- Edit page at /edit/[deckId] with full CRUD for deck and cards
 
-**Next up:** M4 - Deck Editing (rename decks, edit individual cards)
+**Next up:** M5 - Upload Enhancements & Prompt Config
 
 ### UI
-**Last Session:** 2026-01-13 16:21
+**Last Session:** 2026-01-13 17:00
 
-M3 complete. Stats bar with streak/accuracy, deck deletion, per-deck accuracy stats all working.
+M4 complete. DeckList now has edit button. Edit page allows renaming deck, editing card front/back, deleting cards, and adding new cards manually.
 
 ---
 
@@ -113,16 +117,37 @@ M3 complete. Stats bar with streak/accuracy, deck deletion, per-deck accuracy st
 **What:** Edit and manage existing decks
 
 **Test Criteria:**
-- [ ] Can rename a deck
-- [ ] Can edit individual flashcard front/back
-- [ ] Can delete individual flashcards
-- [ ] Can add new cards to existing deck manually
+- [x] Can rename a deck
+- [x] Can edit individual flashcard front/back
+- [x] Can delete individual flashcards
+- [x] Can add new cards to existing deck manually
+
+**Status:** DONE
+
+---
+
+### M5 [Core, UI] - Upload Enhancements & Prompt Config
+
+**What:** Enhanced upload flow with additional instructions and configurable AI prompts
+
+**Test Criteria:**
+- [ ] Can upload new material when editing an existing deck (adds cards to deck)
+- [ ] Textbox for additional instructions appears when uploading (new or existing deck)
+- [ ] AI uses additional instructions when generating flashcards
+- [ ] Options page shows current AI prompt (readable)
+- [ ] Can edit the AI prompt in options
+- [ ] Can restore AI prompt to default after editing
 
 **Status:** READY
 
 ---
 
 ## Completed Milestones
+
+### M4 [UI] - Deck Editing
+**Completed:** 2026-01-13
+**Commit:** (pending)
+Full deck editing UI at /edit/[deckId]. Rename deck, edit card front/back, delete cards, add new cards manually. Edit button added to DeckList. API endpoints: GET/PATCH deck, POST/PATCH/DELETE flashcards.
 
 ### M3 [UI] - Statistics & Organization
 **Completed:** 2026-01-13
