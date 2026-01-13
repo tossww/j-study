@@ -54,3 +54,5 @@ tmp/
 temp/
 *.tmp
 .env*.local
+*.pyc
+__pycache__/

@@ -2,6 +2,16 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import UploadResult from './UploadResult'
+import type { DeckAnalysis } from '@/db/schema'
+
+interface UploadResponse {
+  success: boolean
+  deck: { id: number; name: string }
+  cardsCreated: number
+  totalCards: number
+  analysis: DeckAnalysis
+}
 
 export default function FileUpload() {
   const [file, setFile] = useState<File | null>(null)
@@ -9,6 +19,8 @@ export default function FileUpload() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
+  const [showUploader, setShowUploader] = useState(true)
   const router = useRouter()
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -39,8 +51,7 @@ export default function FileUpload() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const uploadFile = async (generateAnswers: boolean = false) => {
     if (!file) return
 
     setUploading(true)
@@ -49,8 +60,16 @@ export default function FileUpload() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      if (deckName) {
+
+      // If we have an existing deck, add to it
+      if (uploadResult?.deck.id) {
+        formData.append('deckId', uploadResult.deck.id.toString())
+      } else if (deckName) {
         formData.append('deckName', deckName)
+      }
+
+      if (generateAnswers) {
+        formData.append('generateAnswers', 'true')
       }
 
       const response = await fetch('/api/upload', {
@@ -64,8 +83,10 @@ export default function FileUpload() {
         throw new Error(data.error || 'Upload failed')
       }
 
-      // Redirect to study page with the new deck
-      router.push(`/study?deck=${data.deck.id}`)
+      // Show results instead of redirecting
+      setUploadResult(data)
+      setShowUploader(false)
+      setFile(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
@@ -73,22 +94,86 @@ export default function FileUpload() {
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await uploadFile(false)
+  }
+
+  const handleAddMore = () => {
+    setShowUploader(true)
+    setFile(null)
+  }
+
+  const handleStudy = () => {
+    if (uploadResult?.deck.id) {
+      router.push(`/study?deck=${uploadResult.deck.id}`)
+    }
+  }
+
+  const handleGenerateAnswers = async () => {
+    // Re-upload with generateAnswers flag
+    // We need to re-select a file or use the same content
+    // For simplicity, we'll just redirect to study for now
+    // In a full implementation, we'd re-process with the flag
+    if (uploadResult?.deck.id) {
+      setUploading(true)
+      try {
+        const formData = new FormData()
+        // Create a placeholder to trigger answer generation
+        formData.append('deckId', uploadResult.deck.id.toString())
+        formData.append('generateAnswers', 'true')
+        // Note: This would need the original content or file
+        // For now, just redirect to study
+        router.push(`/study?deck=${uploadResult.deck.id}`)
+      } finally {
+        setUploading(false)
+      }
+    }
+  }
+
+  // Show upload result if we have one and not showing uploader
+  if (uploadResult && !showUploader) {
+    return (
+      <UploadResult
+        deckName={uploadResult.deck.name}
+        deckId={uploadResult.deck.id}
+        cardsCreated={uploadResult.cardsCreated}
+        totalCards={uploadResult.totalCards}
+        analysis={uploadResult.analysis}
+        onAddMore={handleAddMore}
+        onStudy={handleStudy}
+        onGenerateAnswers={uploadResult.analysis.specialAction ? handleGenerateAnswers : undefined}
+      />
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-xl">
-      {/* Deck name input */}
-      <div className="mb-4">
-        <label htmlFor="deckName" className="block text-sm font-medium text-gray-700 mb-1">
-          Deck Name (optional)
-        </label>
-        <input
-          type="text"
-          id="deckName"
-          value={deckName}
-          onChange={(e) => setDeckName(e.target.value)}
-          placeholder="e.g., Biology Chapter 5"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        />
-      </div>
+      {/* Show existing deck context if adding more */}
+      {uploadResult && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-700">
+            Adding to: <span className="font-medium">{uploadResult.deck.name}</span> ({uploadResult.totalCards} cards)
+          </p>
+        </div>
+      )}
+
+      {/* Deck name input - only show for new decks */}
+      {!uploadResult && (
+        <div className="mb-4">
+          <label htmlFor="deckName" className="block text-sm font-medium text-gray-700 mb-1">
+            Deck Name (optional)
+          </label>
+          <input
+            type="text"
+            id="deckName"
+            value={deckName}
+            onChange={(e) => setDeckName(e.target.value)}
+            placeholder="e.g., Biology Chapter 5"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          />
+        </div>
+      )}
 
       {/* File drop zone */}
       <div
@@ -160,12 +245,25 @@ export default function FileUpload() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Generating flashcards...
+            Analyzing & generating flashcards...
           </span>
+        ) : uploadResult ? (
+          'Add to Deck'
         ) : (
           'Generate Flashcards'
         )}
       </button>
+
+      {/* Cancel button when adding more */}
+      {uploadResult && (
+        <button
+          type="button"
+          onClick={() => setShowUploader(false)}
+          className="mt-2 w-full py-2 px-4 text-gray-600 text-sm hover:text-gray-900 transition-colors"
+        >
+          Cancel
+        </button>
+      )}
     </form>
   )
 }

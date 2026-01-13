@@ -12,12 +12,13 @@ export async function GET() {
         description: decks.description,
         sourceFileName: decks.sourceFileName,
         createdAt: decks.createdAt,
+        updatedAt: decks.updatedAt,
         cardCount: sql<number>`count(${flashcards.id})::int`,
       })
       .from(decks)
       .leftJoin(flashcards, eq(decks.id, flashcards.deckId))
       .groupBy(decks.id)
-      .orderBy(desc(decks.createdAt))
+      .orderBy(desc(decks.updatedAt))
 
     return NextResponse.json(allDecks)
   } catch (error) {

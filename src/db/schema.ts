@@ -6,9 +6,22 @@ export const decks = pgTable('decks', {
   name: text('name').notNull(),
   description: text('description'),
   sourceFileName: text('source_file_name'),
+  analysis: text('analysis'), // JSON string with AI feedback
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
+
+// Analysis type for AI feedback
+export interface DeckAnalysis {
+  contentType: 'notes' | 'questions' | 'textbook' | 'slides' | 'other'
+  topics: string[]
+  coverage: 'sparse' | 'moderate' | 'good' | 'comprehensive'
+  suggestions: string[]
+  specialAction?: {
+    type: 'generate_answers' | 'generate_questions'
+    description: string
+  }
+}
 
 // Flashcards table
 export const flashcards = pgTable('flashcards', {

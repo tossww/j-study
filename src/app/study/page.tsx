@@ -3,12 +3,13 @@ import { Suspense } from 'react'
 import DeckList from '@/components/DeckList'
 import StudySessionWrapper from './StudySessionWrapper'
 
-export default function StudyPage({
+export default async function StudyPage({
   searchParams,
 }: {
-  searchParams: { deck?: string }
+  searchParams: Promise<{ deck?: string }>
 }) {
-  const deckId = searchParams.deck ? parseInt(searchParams.deck) : null
+  const params = await searchParams
+  const deckId = params.deck ? parseInt(params.deck) : null
 
   return (
     <div className="min-h-screen p-8">

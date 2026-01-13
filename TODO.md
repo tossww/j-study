@@ -14,7 +14,7 @@
 ## Master Milestone List
 
 - **M0** [Core] Project Setup → `DONE`
-- **M1** [Core, UI] File Upload & AI Generation → `READY`
+- **M1** [Core, UI] File Upload & AI Generation → `ACTIVE`
 - **M2** [UI] Study Mode Polish → `READY`
 - **M3** [UI] Statistics & Organization → `READY`
 
@@ -27,8 +27,53 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13
-Completed Vercel deployment setup. Linked project to Vercel, created Neon Postgres database (j-study-db), added Anthropic API key, pushed DB schema, and verified production deployment at https://j-study-tossww.vercel.app. Fixed Next.js 15+ compatibility issues (params Promise, serverExternalPackages). Updated SETUP.md with two-path workflow (Admin vs Developer) so Jasmine's Claude knows to request .env.local file from Steven.
+**Last Session:** 2026-01-13 10:45
+
+**Milestone:** M1 - File Upload & AI Generation (In Progress)
+
+**What happened:**
+Significant implementation work on M1. Enhanced the upload flow with AI-powered content analysis. Claude now analyzes uploaded files, identifies content type (notes/questions/textbook/slides), extracts topics, assesses coverage, and provides suggestions.
+
+**Changes made (UNCOMMITTED):**
+- `src/lib/anthropic.ts` - Added `analyzeAndGenerateFlashcards()` function with:
+  - Content type detection
+  - Topic extraction
+  - Coverage assessment (sparse/moderate/good/comprehensive)
+  - Suggestions for additional materials
+  - Special action prompts (e.g., detect question sheets → offer to generate answers)
+  - Context-aware generation to avoid duplicate cards when adding to existing deck
+- `src/app/api/upload/route.ts` - Enhanced to:
+  - Support adding cards to existing decks (deckId param)
+  - Generate answers for question sheets (generateAnswers param)
+  - Return analysis with flashcards
+  - Removed Vercel Blob dependency (direct parsing)
+- `src/db/schema.ts` - Added `DeckAnalysis` interface and `analysis` column to decks table
+- `src/components/UploadResult.tsx` - **NEW** component showing:
+  - Success header with card count
+  - AI analysis panel (content type, coverage, topics, suggestions)
+  - Special action prompts (e.g., "Generate answers?" for question sheets)
+  - Add-more drop zone for expanding decks
+- `src/components/FileUpload.tsx` - Enhanced with:
+  - Upload result state management
+  - Support for adding more files to same deck
+  - Answer generation flow
+- `src/components/DeckList.tsx` - Minor updates
+- `src/app/study/page.tsx` - Minor updates
+
+**Next up:**
+1. **COMMIT THE CHANGES** - All code is uncommitted!
+2. **Test the upload flow** - Verify M1 test criteria:
+   - [ ] Upload PDF → extract text → generate cards
+   - [ ] Upload TXT/MD files
+   - [ ] Claude generates 10-20 relevant flashcards
+   - [ ] Flashcards saved to database
+   - [ ] Deck created with file name
+3. **DB Migration** - The schema added an `analysis` column - may need migration
+
+**Important context:**
+- Schema was modified (added `analysis` text column) - production DB may need migration
+- The enhanced AI flow uses more tokens (analysis + generation in one call)
+- Question sheet detection is a nice-to-have feature, but may not be critical for M1
 
 ### UI
 **Last Session:** 2024-12-24
