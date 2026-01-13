@@ -146,7 +146,7 @@ M4 complete. DeckList now has edit button. Edit page allows renaming deck, editi
 
 ### M4 [UI] - Deck Editing
 **Completed:** 2026-01-13
-**Commit:** (pending)
+**Commit:** 9c9ccfd
 Full deck editing UI at /edit/[deckId]. Rename deck, edit card front/back, delete cards, add new cards manually. Edit button added to DeckList. API endpoints: GET/PATCH deck, POST/PATCH/DELETE flashcards.
 
 ### M3 [UI] - Statistics & Organization
