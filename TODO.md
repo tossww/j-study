@@ -106,9 +106,9 @@ Created all base UI components: FileUpload (drag-and-drop), Flashcard (flip anim
 ## Completed Milestones
 
 ### M0 [Core] - Project Setup
-**Completed:** 2024-12-24
-**Commit:** (pending)
-Base infrastructure set up with Next.js 14, Vercel Postgres, Anthropic integration.
+**Completed:** 2026-01-13
+**Commit:** a9bbd4f
+Base infrastructure set up with Next.js, Neon Postgres, Anthropic integration. Deployed to https://j-study-tossww.vercel.app
 
 ---
 
