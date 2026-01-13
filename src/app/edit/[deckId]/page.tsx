@@ -53,6 +53,7 @@ export default function EditDeckPage({
   const [aiFile, setAiFile] = useState<File | null>(null)
   const [generating, setGenerating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [aiSuccess, setAiSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -194,9 +195,11 @@ export default function EditDeckPage({
 
     setGenerating(true)
     setAiError(null)
+    setAiSuccess(null)
 
     try {
       const customPrompt = localStorage.getItem(PROMPT_STORAGE_KEY)
+      let cardsCreated = 0
 
       if (aiFile) {
         // File-based generation
@@ -222,6 +225,7 @@ export default function EditDeckPage({
         if (!response.ok) {
           throw new Error(data.error || 'Generation failed')
         }
+        cardsCreated = data.cardsCreated
       } else {
         // Instructions-only generation
         const response = await fetch('/api/generate', {
@@ -239,6 +243,7 @@ export default function EditDeckPage({
         if (!response.ok) {
           throw new Error(data.error || 'Generation failed')
         }
+        cardsCreated = data.cardsCreated
       }
 
       // Refresh cards list
@@ -248,9 +253,13 @@ export default function EditDeckPage({
         setCards(cardsData)
       }
 
-      // Reset state
+      // Reset state and show success
       setAiFile(null)
       setAiInstructions('')
+      setAiSuccess(`${cardsCreated} new card${cardsCreated !== 1 ? 's' : ''} added!`)
+
+      // Clear success message after 4 seconds
+      setTimeout(() => setAiSuccess(null), 4000)
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Generation failed')
     } finally {
@@ -429,6 +438,16 @@ export default function EditDeckPage({
                 )}
               </div>
             </div>
+
+            {/* Success message */}
+            {aiSuccess && (
+              <div className="p-2 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-green-600">{aiSuccess}</p>
+              </div>
+            )}
 
             {/* Error message */}
             {aiError && (

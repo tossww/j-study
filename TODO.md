@@ -19,7 +19,7 @@
 - **M3** [UI] Statistics & Organization → `DONE`
 - **M4** [UI] Deck Editing → `DONE`
 - **M5** [Core, UI] Upload Enhancements & Prompt Config → `DONE`
-- **M6** [UI] Unified Deck Creation + UX Fixes → `READY`
+- **M6** [UI] Unified Deck Creation + UX Fixes → `DONE`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -30,22 +30,14 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13 17:01
+**Last Session:** 2026-01-13 17:42
 
-M5 complete + post-M5 enhancement.
-- New `/api/generate` endpoint for instructions-only AI card generation
-- `generateFromInstructions()` function in anthropic.ts
-- Custom prompt support via localStorage throughout
+M6 complete. `/api/generate` now supports creating NEW decks (deckId optional), derives deck name from instructions.
 
 ### UI
-**Last Session:** 2026-01-13 17:01
+**Last Session:** 2026-01-13 17:42
 
-M5 complete + post-M5 enhancement.
-- Edit page now has always-visible "AI Generate Cards" section (not behind toggle)
-- Instructions textarea always shown - type prompt, hit generate
-- File upload is optional (below textarea)
-- Options page at /options for AI prompt customization
-- Settings gear icon on home page
+M6 complete. "Create New Deck" page redesigned (instructions-first, file optional). Success toast on edit page AI generation. Exit button added to study mode.
 
 ---
 
@@ -151,18 +143,23 @@ M5 complete + post-M5 enhancement.
 **What:** Redesign "Create New Deck" to match edit deck UX (instructions-first, file optional) + fix critical UX issues from audit
 
 **Test Criteria:**
-- [ ] Create deck page: Instructions textarea always visible (not hidden until file selected)
-- [ ] Create deck page: File upload is optional (can generate from instructions only)
-- [ ] Create deck page: Can still create from file-only (backwards compatible)
-- [ ] Edit deck page: Success toast/feedback after AI generation completes
-- [ ] Study mode: Exit button visible to leave session early
-- [ ] Home page: Button text updated ("Create New Deck" instead of "Upload Study Material")
+- [x] Create deck page: Instructions textarea always visible (not hidden until file selected)
+- [x] Create deck page: File upload is optional (can generate from instructions only)
+- [x] Create deck page: Can still create from file-only (backwards compatible)
+- [x] Edit deck page: Success toast/feedback after AI generation completes
+- [x] Study mode: Exit button visible to leave session early
+- [x] Home page: Button text updated ("Create New Deck" instead of "Upload Study Material")
 
-**Status:** READY
+**Status:** DONE
 
 ---
 
 ## Completed Milestones
+
+### M6 [UI] - Unified Deck Creation + UX Fixes
+**Completed:** 2026-01-13
+**Commit:** (pending)
+Redesigned "Create New Deck" page with instructions-first UX (file optional). API updated to create new decks from instructions only. Added success toast to edit deck AI generation, exit button to study mode, and "Back to Decks" button on session complete.
 
 ### M5 [Core, UI] - Upload Enhancements & Prompt Config
 **Completed:** 2026-01-13

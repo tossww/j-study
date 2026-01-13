@@ -7,7 +7,7 @@ interface UploadResultProps {
   deckId: number
   cardsCreated: number
   totalCards: number
-  analysis: DeckAnalysis
+  analysis?: DeckAnalysis
   onAddMore: () => void
   onStudy: () => void
   onGenerateAnswers?: () => void
@@ -53,80 +53,82 @@ export default function UploadResult({
         </p>
       </div>
 
-      {/* Analysis panel */}
-      <div className="bg-gray-50 rounded-xl p-6 mb-6">
-        <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
-          AI Analysis
-        </h3>
+      {/* Analysis panel - only show if analysis exists (file-based generation) */}
+      {analysis && (
+        <div className="bg-gray-50 rounded-xl p-6 mb-6">
+          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+            AI Analysis
+          </h3>
 
-        {/* Content type and coverage */}
-        <div className="flex gap-3 mb-4">
-          <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
-            {contentTypeLabels[analysis.contentType] || analysis.contentType}
-          </span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${coverageColors[analysis.coverage]}`}>
-            {analysis.coverage.charAt(0).toUpperCase() + analysis.coverage.slice(1)} coverage
-          </span>
-        </div>
-
-        {/* Topics */}
-        <div className="mb-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Topics covered:</h4>
-          <div className="flex flex-wrap gap-2">
-            {analysis.topics.map((topic, index) => (
-              <span
-                key={index}
-                className="px-2 py-1 bg-white border border-gray-200 rounded text-sm text-gray-600"
-              >
-                {topic}
-              </span>
-            ))}
+          {/* Content type and coverage */}
+          <div className="flex gap-3 mb-4">
+            <span className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
+              {contentTypeLabels[analysis.contentType] || analysis.contentType}
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${coverageColors[analysis.coverage]}`}>
+              {analysis.coverage.charAt(0).toUpperCase() + analysis.coverage.slice(1)} coverage
+            </span>
           </div>
-        </div>
 
-        {/* Suggestions */}
-        {analysis.suggestions.length > 0 && (
+          {/* Topics */}
           <div className="mb-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Suggestions:</h4>
-            <ul className="space-y-2">
-              {analysis.suggestions.map((suggestion, index) => (
-                <li key={index} className="flex items-start gap-2 text-sm text-gray-600">
-                  <span className="text-yellow-500 mt-0.5">💡</span>
-                  {suggestion}
-                </li>
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Topics covered:</h4>
+            <div className="flex flex-wrap gap-2">
+              {analysis.topics.map((topic, index) => (
+                <span
+                  key={index}
+                  className="px-2 py-1 bg-white border border-gray-200 rounded text-sm text-gray-600"
+                >
+                  {topic}
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
-        )}
 
-        {/* Special action prompt (e.g., question sheet detected) */}
-        {analysis.specialAction && onGenerateAnswers && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">📝</span>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900">
-                  {analysis.specialAction.description}
-                </p>
-                <div className="mt-3 flex gap-3">
-                  <button
-                    onClick={onGenerateAnswers}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Yes, generate answers
-                  </button>
-                  <button
-                    onClick={onStudy}
-                    className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-                  >
-                    No, keep as-is
-                  </button>
+          {/* Suggestions */}
+          {analysis.suggestions.length > 0 && (
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Suggestions:</h4>
+              <ul className="space-y-2">
+                {analysis.suggestions.map((suggestion, index) => (
+                  <li key={index} className="flex items-start gap-2 text-sm text-gray-600">
+                    <span className="text-yellow-500 mt-0.5">💡</span>
+                    {suggestion}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Special action prompt (e.g., question sheet detected) */}
+          {analysis.specialAction && onGenerateAnswers && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">📝</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-blue-900">
+                    {analysis.specialAction.description}
+                  </p>
+                  <div className="mt-3 flex gap-3">
+                    <button
+                      onClick={onGenerateAnswers}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Yes, generate answers
+                    </button>
+                    <button
+                      onClick={onStudy}
+                      className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                    >
+                      No, keep as-is
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Add more section */}
       <div
@@ -140,8 +142,8 @@ export default function UploadResult({
         <p className="text-xs text-gray-500">Drop another file to expand your flashcards</p>
       </div>
 
-      {/* Action buttons */}
-      {!analysis.specialAction && (
+      {/* Action buttons - show unless there's a special action prompt */}
+      {!analysis?.specialAction && (
         <div className="flex gap-4">
           <button
             onClick={onStudy}
@@ -153,7 +155,7 @@ export default function UploadResult({
             onClick={onAddMore}
             className="py-3 px-4 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors"
           >
-            Add More Files
+            Add More
           </button>
         </div>
       )}

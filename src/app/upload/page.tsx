@@ -8,14 +8,13 @@ export default function UploadPage() {
         &larr; Back
       </Link>
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Study Material</h1>
-      <p className="text-gray-600 mb-8">Upload a PDF, text file, or markdown to generate flashcards</p>
+      <h1 className="text-3xl font-bold text-gray-900 mb-2">Create New Deck</h1>
+      <p className="text-gray-600 mb-8">Describe what you want to learn and AI will create flashcards for you</p>
 
       <FileUpload />
 
       <div className="mt-8 text-center text-sm text-gray-500">
-        <p>AI will analyze your content and create flashcards automatically</p>
-        <p className="mt-1">Supports: PDF, TXT, MD files</p>
+        <p>Just describe what you want to study, or add a file for context</p>
       </div>
     </div>
   )

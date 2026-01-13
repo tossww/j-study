@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import Flashcard from './Flashcard'
 import type { Flashcard as FlashcardType } from '@/db/schema'
 
@@ -114,22 +115,43 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
           </div>
         </div>
 
-        <button
-          onClick={restartSession}
-          className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          Study Again
-        </button>
+        <div className="flex gap-4 justify-center">
+          <button
+            onClick={restartSession}
+            className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Study Again
+          </button>
+          <Link
+            href="/study"
+            className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+          >
+            Back to Decks
+          </Link>
+        </div>
       </div>
     )
   }
 
   return (
     <div>
-      {/* Progress */}
+      {/* Exit button and Progress */}
       <div className="mb-6">
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
-          <span>{deckName}</span>
+        <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/study"
+              className="flex items-center gap-1 text-gray-500 hover:text-gray-700 transition-colors"
+              title="Exit session"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Exit</span>
+            </Link>
+            <span className="text-gray-300">|</span>
+            <span>{deckName}</span>
+          </div>
           <span>{currentIndex + 1} / {cards.length}</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">

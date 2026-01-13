@@ -11,7 +11,7 @@ export default function Home() {
           href="/upload"
           className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
         >
-          Upload Study Material
+          Create New Deck
         </Link>
         <Link
           href="/study"
@@ -22,7 +22,7 @@ export default function Home() {
       </div>
 
       <div className="mt-12 text-center text-gray-500">
-        <p>Upload PDFs, text files, or markdown to generate flashcards with AI</p>
+        <p>Create flashcards with AI - just describe what you want to learn</p>
       </div>
 
       <Link
