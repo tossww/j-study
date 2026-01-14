@@ -177,6 +177,7 @@ Return ONLY the JSON object, no other text.`
 
 export interface SimpleGenerationResult {
   flashcards: GeneratedFlashcard[]
+  deckName?: string
 }
 
 export async function generateFromInstructions(
@@ -197,6 +198,8 @@ ${existingCards.sampleCards.slice(0, 3).map(c => `  Q: ${c.front}\n  A: ${c.back
 
   const basePrompt = customPrompt || `You are a study assistant that creates high-quality flashcards based on user instructions.`
 
+  const needsDeckName = !existingCards
+
   const prompt = `${basePrompt}
 
 USER INSTRUCTIONS:
@@ -207,10 +210,12 @@ PARAMETERS:
 - Each card should have a clear question (front) and concise answer (back)
 - Focus on the specific topic or style the user requested
 ${existingCards ? '- IMPORTANT: Avoid creating cards that duplicate existing topics' : ''}
+${needsDeckName ? '- Generate a short, descriptive deck name (2-5 words) based on the topic' : ''}
 ${existingCardsContext}
 
 Return your response as a JSON object with this structure:
 {
+  ${needsDeckName ? '"deckName": "Short Deck Name Here",' : ''}
   "flashcards": [
     {"front": "Question here", "back": "Answer here"},
     ...

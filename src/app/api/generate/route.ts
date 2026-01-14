@@ -65,13 +65,13 @@ export async function POST(request: NextRequest) {
     if (existingDeck) {
       targetDeck = existingDeck
     } else {
-      // Create new deck - derive name from instructions if not provided
-      const derivedName = deckName?.trim() ||
-        instructions.trim().slice(0, 50).replace(/[^\w\s]/g, '').trim() ||
+      // Use provided name, AI-generated name, or fallback
+      const finalName = deckName?.trim() ||
+        result.deckName?.trim() ||
         'New Deck'
 
       const [newDeck] = await db.insert(decks).values({
-        name: derivedName,
+        name: finalName,
         description: `Generated from: "${instructions.trim().slice(0, 100)}${instructions.length > 100 ? '...' : ''}"`,
       }).returning()
       targetDeck = newDeck
