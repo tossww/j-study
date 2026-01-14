@@ -6,6 +6,23 @@
 
 ## Session Log
 
+## 2026-01-14 17:30 - Session Handoff
+**Milestone:** M7 - Smart AI Card Operations (In Progress)
+**Summary:** Implemented full AI card CRUD operations. AI can now add, update, and delete cards via natural language. Fixed accuracy bug where AI showed correct reasoning but output wrong answer.
+**Completed:**
+- New `smartCardOperations()` function with add/update/delete support
+- API processes operations and returns detailed breakdown
+- Summary popup shows cards added/updated/deleted with reasons
+- Added "ACCURACY IS NON-NEGOTIABLE" prompt instruction
+**Key Decisions:**
+- Keep single textbox UX - AI determines intent from instructions
+- Pass all existing cards with IDs so AI can reference specific cards
+- Accuracy principle: derive answers fresh, verify output matches reasoning
+**Committed:** f0e496c
+**Next Focus:** Test all M7 operations (add, update, delete, invalid request), check off test criteria
+
+---
+
 ## 2026-01-14 17:16 - Session Handoff
 **Milestone:** Post-M6 Enhancements
 **Summary:** Fixed critical Vercel timeout bug, added smart AI features (intent detection, deck naming), and improved study mode UX
