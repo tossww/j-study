@@ -1,13 +1,60 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { DeckAnalysis } from '@/db/schema'
 import { DEFAULT_PROMPT } from './prompt-config'
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
-
 // Model to use - using Haiku for faster responses on serverless
 const MODEL = 'claude-3-5-haiku-20241022'
+const API_URL = 'https://api.anthropic.com/v1/messages'
+
+interface AnthropicResponse {
+  content: Array<{ type: string; text?: string }>
+}
+
+async function callAnthropic(prompt: string, maxTokens: number = 4096): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Anthropic API error: ${response.status} - ${error}`)
+  }
+
+  const data: AnthropicResponse = await response.json()
+  const textContent = data.content.find(block => block.type === 'text')
+
+  if (!textContent?.text) {
+    throw new Error('No text content in response')
+  }
+
+  return textContent.text
+}
+
+function parseJsonResponse(text: string): unknown {
+  let jsonText = text.trim()
+
+  // Remove markdown code blocks if present
+  if (jsonText.startsWith('```json')) {
+    jsonText = jsonText.slice(7)
+  } else if (jsonText.startsWith('```')) {
+    jsonText = jsonText.slice(3)
+  }
+  if (jsonText.endsWith('```')) {
+    jsonText = jsonText.slice(0, -3)
+  }
+  jsonText = jsonText.trim()
+
+  return JSON.parse(jsonText)
+}
 
 export interface GeneratedFlashcard {
   front: string  // Question
@@ -26,13 +73,7 @@ export interface AnalysisResult {
 }
 
 export async function generateFlashcards(content: string, maxCards: number = 20): Promise<GeneratedFlashcard[]> {
-  const message = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 4096,
-    messages: [
-      {
-        role: 'user',
-        content: `You are a study assistant that creates high-quality flashcards from educational content.
+  const prompt = `You are a study assistant that creates high-quality flashcards from educational content.
 
 Analyze the following content and create ${maxCards} flashcards. Each flashcard should:
 1. Have a clear, specific question on the front
@@ -51,20 +92,11 @@ Example format:
   {"front": "What is photosynthesis?", "back": "The process by which plants convert sunlight, water, and CO2 into glucose and oxygen."},
   {"front": "What are the products of photosynthesis?", "back": "Glucose (C6H12O6) and oxygen (O2)"}
 ]`
-      }
-    ],
-  })
 
-  // Extract the text content from the response
-  const textContent = message.content.find(block => block.type === 'text')
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text content in response')
-  }
+  const responseText = await callAnthropic(prompt)
 
-  // Parse the JSON response
   try {
-    const flashcards = JSON.parse(textContent.text) as GeneratedFlashcard[]
-    return flashcards
+    return parseJsonResponse(responseText) as GeneratedFlashcard[]
   } catch {
     throw new Error('Failed to parse flashcards from AI response')
   }
@@ -104,13 +136,7 @@ ${additionalInstructions}
   // Use custom prompt if provided, otherwise use default
   const basePrompt = customPrompt || DEFAULT_PROMPT
 
-  const message = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 4096,
-    messages: [
-      {
-        role: 'user',
-        content: `${basePrompt}
+  const prompt = `${basePrompt}
 
 PARAMETERS:
 - Maximum cards to generate: ${maxCards}
@@ -138,34 +164,13 @@ Return your response as valid JSON with this exact structure:
 }
 
 Return ONLY the JSON object, no other text.`
-      }
-    ],
-  })
 
-  const textContent = message.content.find(block => block.type === 'text')
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text content in response')
-  }
+  const responseText = await callAnthropic(prompt)
 
   try {
-    // Try to extract JSON from the response (Claude sometimes wraps in markdown)
-    let jsonText = textContent.text.trim()
-
-    // Remove markdown code blocks if present
-    if (jsonText.startsWith('```json')) {
-      jsonText = jsonText.slice(7)
-    } else if (jsonText.startsWith('```')) {
-      jsonText = jsonText.slice(3)
-    }
-    if (jsonText.endsWith('```')) {
-      jsonText = jsonText.slice(0, -3)
-    }
-    jsonText = jsonText.trim()
-
-    const result = JSON.parse(jsonText) as AnalysisResult
-    return result
+    return parseJsonResponse(responseText) as AnalysisResult
   } catch (e) {
-    console.error('Failed to parse AI response:', textContent.text.slice(0, 500))
+    console.error('Failed to parse AI response:', responseText.slice(0, 500))
     throw new Error('Failed to parse analysis from AI response')
   }
 }
@@ -192,13 +197,7 @@ ${existingCards.sampleCards.slice(0, 3).map(c => `  Q: ${c.front}\n  A: ${c.back
 
   const basePrompt = customPrompt || `You are a study assistant that creates high-quality flashcards based on user instructions.`
 
-  const message = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 4096,
-    messages: [
-      {
-        role: 'user',
-        content: `${basePrompt}
+  const prompt = `${basePrompt}
 
 USER INSTRUCTIONS:
 ${instructions}
@@ -219,32 +218,13 @@ Return your response as a JSON object with this structure:
 }
 
 Return ONLY the JSON object, no other text.`
-      }
-    ],
-  })
 
-  const textContent = message.content.find(block => block.type === 'text')
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text content in response')
-  }
+  const responseText = await callAnthropic(prompt)
 
   try {
-    let jsonText = textContent.text.trim()
-
-    if (jsonText.startsWith('```json')) {
-      jsonText = jsonText.slice(7)
-    } else if (jsonText.startsWith('```')) {
-      jsonText = jsonText.slice(3)
-    }
-    if (jsonText.endsWith('```')) {
-      jsonText = jsonText.slice(0, -3)
-    }
-    jsonText = jsonText.trim()
-
-    const result = JSON.parse(jsonText) as SimpleGenerationResult
-    return result
+    return parseJsonResponse(responseText) as SimpleGenerationResult
   } catch (e) {
-    console.error('Failed to parse AI response:', textContent.text.slice(0, 500))
+    console.error('Failed to parse AI response:', responseText.slice(0, 500))
     throw new Error('Failed to parse generation from AI response')
   }
 }
