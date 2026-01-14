@@ -178,17 +178,22 @@ Return ONLY the JSON object, no other text.`
 export interface SimpleGenerationResult {
   flashcards: GeneratedFlashcard[]
   deckName?: string
+  suggestedDeckName?: string  // For rename requests on existing decks
+  summary: string  // Brief description of what was done
+  action: 'generate_cards' | 'suggest_name' | 'both'
 }
 
 export async function generateFromInstructions(
   instructions: string,
   existingCards?: ExistingCardSummary,
   maxCards: number = 10,
-  customPrompt?: string
+  customPrompt?: string,
+  currentDeckName?: string
 ): Promise<SimpleGenerationResult> {
   const existingCardsContext = existingCards
     ? `
-EXISTING CARDS IN DECK (avoid duplicating these topics):
+EXISTING DECK INFO:
+- Current deck name: "${currentDeckName || 'Unnamed'}"
 - Total cards: ${existingCards.totalCount}
 - Topics already covered: ${existingCards.topics.join(', ')}
 - Sample existing cards:
@@ -196,38 +201,57 @@ ${existingCards.sampleCards.slice(0, 3).map(c => `  Q: ${c.front}\n  A: ${c.back
 `
     : ''
 
-  const basePrompt = customPrompt || `You are a study assistant that creates high-quality flashcards based on user instructions.`
+  const basePrompt = customPrompt || `You are a smart study assistant. You understand user intent and can either generate flashcards OR suggest deck names based on what they ask.`
 
-  const needsDeckName = !existingCards
+  const isNewDeck = !existingCards
 
   const prompt = `${basePrompt}
 
-USER INSTRUCTIONS:
+USER REQUEST:
 ${instructions}
 
-PARAMETERS:
-- Generate up to ${maxCards} flashcards based on the instructions above
-- Each card should have a clear question (front) and concise answer (back)
-- Focus on the specific topic or style the user requested
-${existingCards ? '- IMPORTANT: Avoid creating cards that duplicate existing topics' : ''}
-${needsDeckName ? '- Generate a short, descriptive deck name (2-5 words) based on the topic' : ''}
 ${existingCardsContext}
 
-Return your response as a JSON object with this structure:
+INSTRUCTIONS:
+1. First, determine what the user wants:
+   - If they want to GENERATE CARDS (e.g., "make cards about X", "add 10 vocabulary words", "create flashcards for chapter 3"), set action to "generate_cards"
+   - If they want a DECK NAME suggestion (e.g., "suggest a name", "help me name this deck", "what should I call this"), set action to "suggest_name"
+   - If they want BOTH (e.g., "create cards about cats and name the deck"), set action to "both"
+
+2. Based on the action:
+   - For "generate_cards" or "both": Generate up to ${maxCards} high-quality flashcards
+   - For "suggest_name" or "both": Suggest a short, descriptive deck name (2-5 words)
+   ${isNewDeck ? '- This is a NEW deck, so always include "deckName"' : ''}
+
+3. Write a brief summary (1 sentence) of what you did
+
+Return your response as a JSON object:
 {
-  ${needsDeckName ? '"deckName": "Short Deck Name Here",' : ''}
+  "action": "generate_cards" | "suggest_name" | "both",
+  "summary": "Brief description of what was done",
+  ${isNewDeck ? '"deckName": "Name for new deck",' : '"suggestedDeckName": "Suggested name (only if user asked for naming help)",'}
   "flashcards": [
-    {"front": "Question here", "back": "Answer here"},
+    {"front": "Question", "back": "Answer"},
     ...
   ]
 }
 
-Return ONLY the JSON object, no other text.`
+IMPORTANT:
+- "flashcards" array can be empty if action is "suggest_name"
+- Always include a helpful "summary"
+- Return ONLY the JSON object, no other text.`
 
   const responseText = await callAnthropic(prompt)
 
   try {
-    return parseJsonResponse(responseText) as SimpleGenerationResult
+    const result = parseJsonResponse(responseText) as SimpleGenerationResult
+    // Ensure required fields have defaults
+    return {
+      ...result,
+      flashcards: result.flashcards || [],
+      summary: result.summary || 'Request processed',
+      action: result.action || 'generate_cards'
+    }
   } catch (e) {
     console.error('Failed to parse AI response:', responseText.slice(0, 500))
     throw new Error('Failed to parse generation from AI response')

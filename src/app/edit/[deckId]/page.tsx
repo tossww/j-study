@@ -243,7 +243,33 @@ export default function EditDeckPage({
         if (!response.ok) {
           throw new Error(data.error || 'Generation failed')
         }
+
         cardsCreated = data.cardsCreated
+
+        // Handle name suggestion action
+        if (data.action === 'suggest_name' && data.suggestedDeckName) {
+          setAiFile(null)
+          setAiInstructions('')
+          setAiSuccess(`Suggested deck name: "${data.suggestedDeckName}"`)
+          setTimeout(() => setAiSuccess(null), 8000)
+          return
+        }
+
+        // Use summary from AI if available
+        if (data.summary) {
+          setAiFile(null)
+          setAiInstructions('')
+          setAiSuccess(data.summary)
+          setTimeout(() => setAiSuccess(null), 6000)
+
+          // Refresh cards list
+          const cardsRes = await fetch(`/api/flashcards/${deckId}`)
+          if (cardsRes.ok) {
+            const cardsData = await cardsRes.json()
+            setCards(cardsData)
+          }
+          return
+        }
       }
 
       // Refresh cards list

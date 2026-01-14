@@ -50,10 +50,22 @@ export async function POST(request: NextRequest) {
       instructions,
       existingCardSummary,
       deckId ? 10 : 15, // More cards for new decks
-      customPrompt || undefined
+      customPrompt || undefined,
+      existingDeck?.name
     )
 
-    if (result.flashcards.length === 0) {
+    // If only suggesting a name (no cards), return early
+    if (result.action === 'suggest_name' && result.flashcards.length === 0) {
+      return NextResponse.json({
+        success: true,
+        action: 'suggest_name',
+        suggestedDeckName: result.suggestedDeckName,
+        summary: result.summary,
+        cardsCreated: 0,
+      })
+    }
+
+    if (result.flashcards.length === 0 && result.action !== 'suggest_name') {
       return NextResponse.json(
         { error: 'No flashcards could be generated from these instructions' },
         { status: 400 }
@@ -98,6 +110,9 @@ export async function POST(request: NextRequest) {
       cardsCreated: result.flashcards.length,
       totalCards: allCards.length,
       isNewDeck: !existingDeck,
+      action: result.action,
+      summary: result.summary,
+      suggestedDeckName: result.suggestedDeckName,
     })
   } catch (error) {
     console.error('Generate error:', error)
