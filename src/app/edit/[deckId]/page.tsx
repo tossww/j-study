@@ -54,6 +54,8 @@ export default function EditDeckPage({
   const [generating, setGenerating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiSuccess, setAiSuccess] = useState<string | null>(null)
+  const [suggestedName, setSuggestedName] = useState<string | null>(null)
+  const [applyingName, setApplyingName] = useState(false)
 
   useEffect(() => {
     async function fetchData() {
@@ -190,6 +192,33 @@ export default function EditDeckPage({
     }
   }
 
+  const handleApplySuggestedName = async () => {
+    if (!suggestedName) return
+    setApplyingName(true)
+
+    try {
+      const response = await fetch(`/api/decks/${deckId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: suggestedName }),
+      })
+
+      if (!response.ok) throw new Error('Failed to update name')
+
+      // Update local state
+      if (deck) {
+        setDeck({ ...deck, name: suggestedName })
+      }
+      setSuggestedName(null)
+      setAiSuccess(`Deck renamed to "${suggestedName}"`)
+      setTimeout(() => setAiSuccess(null), 3000)
+    } catch {
+      setAiError('Failed to apply name')
+    } finally {
+      setApplyingName(false)
+    }
+  }
+
   const handleAiGenerate = async () => {
     if (!aiInstructions.trim() && !aiFile) return
 
@@ -250,9 +279,14 @@ export default function EditDeckPage({
         if (data.action === 'suggest_name' && data.suggestedDeckName) {
           setAiFile(null)
           setAiInstructions('')
-          setAiSuccess(`Suggested deck name: "${data.suggestedDeckName}"`)
-          setTimeout(() => setAiSuccess(null), 8000)
+          setSuggestedName(data.suggestedDeckName)
+          setGenerating(false)
           return
+        }
+
+        // If cards were generated AND a name was suggested, show name option too
+        if (data.suggestedDeckName && data.cardsCreated > 0) {
+          setSuggestedName(data.suggestedDeckName)
         }
 
         // Use summary from AI if available
@@ -472,6 +506,30 @@ export default function EditDeckPage({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p className="text-sm text-green-600">{aiSuccess}</p>
+              </div>
+            )}
+
+            {/* Suggested name prompt */}
+            {suggestedName && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 mb-2">
+                  Suggested deck name: <span className="font-semibold">"{suggestedName}"</span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleApplySuggestedName}
+                    disabled={applyingName}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {applyingName ? 'Applying...' : 'Apply Name'}
+                  </button>
+                  <button
+                    onClick={() => setSuggestedName(null)}
+                    className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             )}
 
