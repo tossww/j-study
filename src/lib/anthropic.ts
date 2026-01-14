@@ -6,6 +6,9 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
+// Model to use - claude-sonnet-4-20250514 or fallback
+const MODEL = 'claude-sonnet-4-20250514'
+
 export interface GeneratedFlashcard {
   front: string  // Question
   back: string   // Answer
