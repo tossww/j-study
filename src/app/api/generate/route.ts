@@ -101,8 +101,9 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Generate error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to generate flashcards' },
+      { error: 'Failed to generate flashcards', details: errorMessage },
       { status: 500 }
     )
   }
