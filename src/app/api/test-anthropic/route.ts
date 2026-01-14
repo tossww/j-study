@@ -1,41 +1,51 @@
 import { NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 
 export async function GET() {
   const hasKey = !!process.env.ANTHROPIC_API_KEY
   const keyPrefix = process.env.ANTHROPIC_API_KEY?.substring(0, 10) || 'none'
 
   if (!hasKey) {
-    return NextResponse.json({
-      error: 'No API key',
-      hasKey,
-      keyPrefix
-    })
+    return NextResponse.json({ error: 'No API key', hasKey, keyPrefix })
   }
 
   try {
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      timeout: 8000, // 8 seconds to stay under Vercel's 10s limit
+    // Use raw fetch instead of SDK
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 50,
+        messages: [{ role: 'user', content: 'Say hello' }],
+      }),
     })
 
-    const message = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 50,
-      messages: [{ role: 'user', content: 'Say "hello" and nothing else.' }],
-    })
+    const data = await response.json()
 
-    const text = message.content[0]?.type === 'text' ? message.content[0].text : 'no text'
+    if (!response.ok) {
+      return NextResponse.json({
+        error: 'API error',
+        status: response.status,
+        data,
+        hasKey,
+        keyPrefix
+      })
+    }
 
     return NextResponse.json({
       success: true,
-      response: text,
+      response: data.content?.[0]?.text || 'no text',
       hasKey,
       keyPrefix
     })
   } catch (error) {
     return NextResponse.json({
       error: error instanceof Error ? error.message : 'Unknown error',
+      errorType: error?.constructor?.name,
       hasKey,
       keyPrefix
     })
