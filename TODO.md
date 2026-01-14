@@ -20,6 +20,7 @@
 - **M4** [UI] Deck Editing → `DONE`
 - **M5** [Core, UI] Upload Enhancements & Prompt Config → `DONE`
 - **M6** [UI] Unified Deck Creation + UX Fixes → `DONE`
+- **M7** [Core] Smart AI Card Operations → `ACTIVE`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -30,14 +31,24 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-14 17:16
+**Last Session:** 2026-01-14 17:30
 
-Post-M6 enhancements:
-- Fixed Vercel deployment protection blocking API calls
-- Replaced Anthropic SDK with raw fetch (fixes serverless timeout issue)
-- Using Haiku model for faster responses
-- Smart AI with intent detection (generate cards vs suggest deck name)
-- AI generates deck name when not provided
+**Milestone:** M7 - Smart AI Card Operations (In Progress)
+
+**What happened:**
+Implemented full AI card CRUD operations. AI now understands it can add, update, and delete cards through natural language. Added `smartCardOperations()` function that passes all existing cards with IDs to the AI so it can reference specific cards to fix/delete.
+
+**Key changes:**
+- `src/lib/anthropic.ts` - New `smartCardOperations()` with add/update/delete support
+- `src/app/api/generate/route.ts` - Processes operations and returns detailed breakdown
+- `src/app/edit/[deckId]/page.tsx` - Summary popup shows added/updated/deleted cards
+
+**Bug fix:** Added "ACCURACY IS NON-NEGOTIABLE" prompt instruction to fix issue where AI would show correct reasoning (e.g., "20-12+3=11") but output wrong answer (14). AI now required to derive answers fresh and verify output matches reasoning.
+
+**Next up:**
+- Test all operations: add, update, delete, invalid request
+- Check off M7 test criteria
+- Changes need to be committed
 
 ### UI
 **Last Session:** 2026-01-14 17:16
@@ -159,6 +170,22 @@ Post-M6 enhancements:
 - [x] Home page: Button text updated ("Create New Deck" instead of "Upload Study Material")
 
 **Status:** DONE
+
+---
+
+### M7 [Core] - Smart AI Card Operations
+
+**What:** Upgrade AI to understand its full capabilities and perform add/update/delete operations on cards through natural language. Single textbox UX remains - AI determines intent and acts accordingly.
+
+**Test Criteria:**
+- [ ] AI can add new cards (existing behavior)
+- [ ] AI can update existing cards by identifying which ones need fixing
+- [ ] AI can delete cards when asked (e.g., "remove the wrong cards")
+- [ ] AI responds gracefully when asked to do something it can't do
+- [ ] Summary popup shows detailed breakdown (cards added, updated, deleted with specifics)
+- [ ] Existing cards are passed to AI with IDs so it can reference them
+
+**Status:** ACTIVE - Ready for testing
 
 ---
 

@@ -57,9 +57,13 @@ export default function EditDeckPage({
   const [applyingName, setApplyingName] = useState(false)
   const [summaryPopup, setSummaryPopup] = useState<{
     summary: string
-    cardsAdded: number
-    action: string
     suggestedName?: string
+    cannotDo?: string
+    operations: {
+      added: { front: string; back: string; reason?: string }[]
+      updated: { id: number; front: string; back: string; reason?: string }[]
+      deleted: { id: number; front: string; reason?: string }[]
+    }
   } | null>(null)
 
   useEffect(() => {
@@ -262,7 +266,7 @@ export default function EditDeckPage({
         }
         cardsCreated = data.cardsCreated
       } else {
-        // Instructions-only generation
+        // Instructions-only generation (smart operations)
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -279,14 +283,13 @@ export default function EditDeckPage({
           throw new Error(data.error || 'Generation failed')
         }
 
-        cardsCreated = data.cardsCreated
-
-        // Show summary popup
+        // Clear inputs
         setAiFile(null)
         setAiInstructions('')
 
-        // Refresh cards list if cards were added
-        if (cardsCreated > 0) {
+        // Refresh cards list if any operations were performed
+        const ops = data.operations || { added: [], updated: [], deleted: [] }
+        if (ops.added.length > 0 || ops.updated.length > 0 || ops.deleted.length > 0) {
           const cardsRes = await fetch(`/api/flashcards/${deckId}`)
           if (cardsRes.ok) {
             const cardsData = await cardsRes.json()
@@ -294,14 +297,12 @@ export default function EditDeckPage({
           }
         }
 
-        // Show summary popup with stats and suggested name
+        // Show summary popup with detailed operations
         setSummaryPopup({
-          summary: data.summary || (data.action === 'suggest_name'
-            ? 'Here\'s a suggested name for your deck'
-            : `Generated ${cardsCreated} flashcard${cardsCreated !== 1 ? 's' : ''}`),
-          cardsAdded: cardsCreated,
-          action: data.action || 'generate_cards',
-          suggestedName: data.suggestedDeckName
+          summary: data.summary || 'Request processed',
+          suggestedName: data.suggestedDeckName,
+          cannotDo: data.cannotDo,
+          operations: ops
         })
         return
       }
@@ -317,8 +318,13 @@ export default function EditDeckPage({
       setAiInstructions('')
       setSummaryPopup({
         summary: `Generated ${cardsCreated} flashcard${cardsCreated !== 1 ? 's' : ''} from file`,
-        cardsAdded: cardsCreated,
-        action: 'generate_cards'
+        suggestedName: undefined,
+        cannotDo: undefined,
+        operations: {
+          added: Array(cardsCreated).fill({ front: '', back: '' }),
+          updated: [],
+          deleted: []
+        }
       })
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Generation failed')
@@ -698,39 +704,123 @@ export default function EditDeckPage({
       {/* Summary Popup Modal */}
       {summaryPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 text-center">
-            {/* Success icon */}
-            <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[80vh] overflow-y-auto">
+            {/* Header with icon */}
+            <div className="text-center mb-4">
+              {summaryPopup.cannotDo ? (
+                <div className="w-14 h-14 mx-auto mb-3 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <svg className="w-7 h-7 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-14 h-14 mx-auto mb-3 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              <h3 className="text-lg font-semibold text-gray-900">{summaryPopup.cannotDo ? 'Heads up' : 'Done!'}</h3>
+              <p className="text-gray-600 text-sm mt-1">{summaryPopup.summary}</p>
             </div>
 
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Done!</h3>
-            <p className="text-gray-600 mb-4">{summaryPopup.summary}</p>
+            {/* Cannot do message */}
+            {summaryPopup.cannotDo && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-left">
+                <p className="text-sm text-yellow-800">{summaryPopup.cannotDo}</p>
+              </div>
+            )}
 
-            {/* Stats */}
-            {summaryPopup.cardsAdded > 0 && (
-              <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <div className="flex justify-center gap-6 text-sm">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600">+{summaryPopup.cardsAdded}</p>
-                    <p className="text-gray-500">cards added</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-primary-600">{cards.length}</p>
-                    <p className="text-gray-500">total cards</p>
+            {/* Operations breakdown */}
+            {(summaryPopup.operations.added.length > 0 ||
+              summaryPopup.operations.updated.length > 0 ||
+              summaryPopup.operations.deleted.length > 0) && (
+              <div className="space-y-3 mb-4 text-left">
+                {/* Stats row */}
+                <div className="flex justify-center gap-4 py-2">
+                  {summaryPopup.operations.added.length > 0 && (
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-green-600">+{summaryPopup.operations.added.length}</p>
+                      <p className="text-xs text-gray-500">added</p>
+                    </div>
+                  )}
+                  {summaryPopup.operations.updated.length > 0 && (
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-blue-600">{summaryPopup.operations.updated.length}</p>
+                      <p className="text-xs text-gray-500">updated</p>
+                    </div>
+                  )}
+                  {summaryPopup.operations.deleted.length > 0 && (
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-red-600">-{summaryPopup.operations.deleted.length}</p>
+                      <p className="text-xs text-gray-500">deleted</p>
+                    </div>
+                  )}
+                  <div className="text-center border-l pl-4">
+                    <p className="text-xl font-bold text-gray-700">{cards.length}</p>
+                    <p className="text-xs text-gray-500">total</p>
                   </div>
                 </div>
+
+                {/* Added cards details */}
+                {summaryPopup.operations.added.length > 0 && summaryPopup.operations.added[0].front && (
+                  <details className="bg-green-50 rounded-lg p-3">
+                    <summary className="text-sm font-medium text-green-800 cursor-pointer">
+                      Cards added ({summaryPopup.operations.added.length})
+                    </summary>
+                    <div className="mt-2 space-y-2 text-xs">
+                      {summaryPopup.operations.added.map((card, i) => (
+                        <div key={i} className="bg-white rounded p-2 border border-green-200">
+                          <p className="font-medium text-gray-700">{card.front}</p>
+                          <p className="text-gray-500 mt-1">{card.back}</p>
+                          {card.reason && <p className="text-green-600 mt-1 italic">{card.reason}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {/* Updated cards details */}
+                {summaryPopup.operations.updated.length > 0 && (
+                  <details className="bg-blue-50 rounded-lg p-3">
+                    <summary className="text-sm font-medium text-blue-800 cursor-pointer">
+                      Cards updated ({summaryPopup.operations.updated.length})
+                    </summary>
+                    <div className="mt-2 space-y-2 text-xs">
+                      {summaryPopup.operations.updated.map((card, i) => (
+                        <div key={i} className="bg-white rounded p-2 border border-blue-200">
+                          <p className="font-medium text-gray-700">{card.front}</p>
+                          <p className="text-gray-500 mt-1">{card.back}</p>
+                          {card.reason && <p className="text-blue-600 mt-1 italic">{card.reason}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {/* Deleted cards details */}
+                {summaryPopup.operations.deleted.length > 0 && (
+                  <details className="bg-red-50 rounded-lg p-3">
+                    <summary className="text-sm font-medium text-red-800 cursor-pointer">
+                      Cards deleted ({summaryPopup.operations.deleted.length})
+                    </summary>
+                    <div className="mt-2 space-y-2 text-xs">
+                      {summaryPopup.operations.deleted.map((card, i) => (
+                        <div key={i} className="bg-white rounded p-2 border border-red-200">
+                          <p className="font-medium text-gray-700 line-through">{card.front}</p>
+                          {card.reason && <p className="text-red-600 mt-1 italic">{card.reason}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )}
 
             {/* Suggested deck name */}
             {summaryPopup.suggestedName && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-blue-800 mb-2">
-                  Suggested deck name:
-                </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-center">
+                <p className="text-sm text-blue-800 mb-2">Suggested deck name:</p>
                 <p className="text-lg font-semibold text-blue-900 mb-3">"{summaryPopup.suggestedName}"</p>
                 <div className="flex gap-2 justify-center">
                   <button
@@ -752,9 +842,9 @@ export default function EditDeckPage({
 
             <button
               onClick={() => setSummaryPopup(null)}
-              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="w-full px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
-              {summaryPopup.suggestedName ? 'Close' : 'Got it'}
+              Got it
             </button>
           </div>
         </div>

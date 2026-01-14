@@ -183,6 +183,28 @@ export interface SimpleGenerationResult {
   action: 'generate_cards' | 'suggest_name' | 'both'
 }
 
+// New interfaces for smart card operations
+export interface ExistingCard {
+  id: number
+  front: string
+  back: string
+}
+
+export interface CardOperation {
+  operation: 'add' | 'update' | 'delete'
+  cardId?: number  // Required for update/delete
+  front?: string   // Required for add/update
+  back?: string    // Required for add/update
+  reason?: string  // Why this operation was performed
+}
+
+export interface SmartOperationResult {
+  operations: CardOperation[]
+  summary: string
+  cannotDo?: string  // If the AI can't fulfill the request, explain why
+  suggestedDeckName?: string
+}
+
 export async function generateFromInstructions(
   instructions: string,
   existingCards?: ExistingCardSummary,
@@ -255,5 +277,77 @@ IMPORTANT:
   } catch (e) {
     console.error('Failed to parse AI response:', responseText.slice(0, 500))
     throw new Error('Failed to parse generation from AI response')
+  }
+}
+
+export async function smartCardOperations(
+  instructions: string,
+  existingCards: ExistingCard[],
+  currentDeckName: string,
+  customPrompt?: string
+): Promise<SmartOperationResult> {
+  const cardsContext = existingCards.length > 0
+    ? existingCards.map(c => `  [ID:${c.id}] Front: "${c.front}" | Back: "${c.back}"`).join('\n')
+    : '  (No cards yet)'
+
+  const prompt = `You are a smart flashcard assistant. You can perform operations on a deck of flashcards.
+
+YOUR CAPABILITIES:
+1. ADD new cards - Create new flashcards
+2. UPDATE existing cards - Fix errors, improve content, correct answers
+3. DELETE cards - Remove cards that are wrong, duplicate, or unwanted
+4. SUGGEST deck names - Help name or rename the deck
+
+CURRENT DECK: "${currentDeckName}"
+EXISTING CARDS:
+${cardsContext}
+
+USER REQUEST:
+${instructions}
+
+INSTRUCTIONS:
+1. Analyze what the user wants
+2. If you CAN fulfill the request, return the appropriate operations
+3. If you CANNOT fulfill the request (e.g., "send an email", "search the web"), set "cannotDo" to explain what you can't do and suggest what you CAN do instead
+4. For updates/deletes, you MUST use the exact card ID from the existing cards list
+5. Be helpful - if the user says "fix the wrong cards", identify which cards have errors and update or delete them
+6. Provide a clear summary of what you did
+
+RESPONSE FORMAT (JSON only):
+{
+  "operations": [
+    {"operation": "add", "front": "Question", "back": "Answer", "reason": "Why adding this"},
+    {"operation": "update", "cardId": 123, "front": "Fixed question", "back": "Fixed answer", "reason": "Why updating"},
+    {"operation": "delete", "cardId": 456, "reason": "Why deleting"}
+  ],
+  "summary": "Brief description of what was done (e.g., 'Fixed 3 cards with incorrect answers and added 2 new vocabulary cards')",
+  "cannotDo": null or "Explanation of what you cannot do and alternatives",
+  "suggestedDeckName": null or "Suggested name if user asked for naming help"
+}
+
+IMPORTANT:
+- "operations" can be empty if you only have a message (cannotDo or suggestedDeckName)
+- Always include a helpful "summary"
+- Return ONLY valid JSON, no other text
+
+ACCURACY IS NON-NEGOTIABLE:
+- When correcting a card, derive the answer fresh - never copy the existing wrong answer
+- If your reasoning shows one answer, that answer MUST appear in the "back" field
+- Verify your output matches your reasoning before returning
+${customPrompt ? `\nADDITIONAL CONTEXT: ${customPrompt}` : ''}`
+
+  const responseText = await callAnthropic(prompt, 8192)
+
+  try {
+    const result = parseJsonResponse(responseText) as SmartOperationResult
+    return {
+      operations: result.operations || [],
+      summary: result.summary || 'Request processed',
+      cannotDo: result.cannotDo || undefined,
+      suggestedDeckName: result.suggestedDeckName || undefined
+    }
+  } catch (e) {
+    console.error('Failed to parse AI response:', responseText.slice(0, 500))
+    throw new Error('Failed to parse AI response')
   }
 }

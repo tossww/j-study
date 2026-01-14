@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, decks, flashcards } from '@/db'
-import { eq } from 'drizzle-orm'
-import { generateFromInstructions, ExistingCardSummary } from '@/lib/anthropic'
+import { eq, inArray } from 'drizzle-orm'
+import { smartCardOperations, generateFromInstructions, ExistingCardSummary, ExistingCard } from '@/lib/anthropic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,113 +12,130 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Instructions required' }, { status: 400 })
     }
 
-    let existingDeck = null
-    let existingCardSummary: ExistingCardSummary | undefined
-
-    // If deckId provided, fetch existing deck and cards for context
+    // For existing decks, use smart operations
     if (deckId) {
       const [deck] = await db.select().from(decks).where(eq(decks.id, deckId))
       if (!deck) {
         return NextResponse.json({ error: 'Deck not found' }, { status: 404 })
       }
-      existingDeck = deck
 
-      // Get existing cards for context
-      const existingCards = await db
-        .select({ front: flashcards.front, back: flashcards.back })
+      // Get all existing cards with IDs
+      const existingCards: ExistingCard[] = await db
+        .select({ id: flashcards.id, front: flashcards.front, back: flashcards.back })
         .from(flashcards)
         .where(eq(flashcards.deckId, deckId))
 
-      if (existingCards.length > 0) {
-        const topics = [...new Set(
-          existingCards.map(c => {
-            const words = c.front.split(' ').slice(0, 4).join(' ')
-            return words.replace(/[?.,!]/g, '')
-          })
-        )].slice(0, 10)
+      // Use smart operations for existing decks
+      const result = await smartCardOperations(
+        instructions,
+        existingCards,
+        deck.name,
+        customPrompt || undefined
+      )
 
-        existingCardSummary = {
-          topics,
-          sampleCards: existingCards.slice(0, 5),
-          totalCount: existingCards.length,
+      // If AI says it can't do something, return that message
+      if (result.cannotDo && result.operations.length === 0) {
+        return NextResponse.json({
+          success: true,
+          cannotDo: result.cannotDo,
+          summary: result.summary,
+          suggestedDeckName: result.suggestedDeckName,
+          operations: { added: [], updated: [], deleted: [] },
+          totalCards: existingCards.length,
+        })
+      }
+
+      // Process operations
+      const added: { front: string; back: string; reason?: string }[] = []
+      const updated: { id: number; front: string; back: string; reason?: string }[] = []
+      const deleted: { id: number; front: string; reason?: string }[] = []
+
+      for (const op of result.operations) {
+        if (op.operation === 'add' && op.front && op.back) {
+          const [newCard] = await db.insert(flashcards).values({
+            deckId,
+            front: op.front,
+            back: op.back,
+          }).returning()
+          added.push({ front: op.front, back: op.back, reason: op.reason })
+        } else if (op.operation === 'update' && op.cardId && op.front && op.back) {
+          await db.update(flashcards)
+            .set({ front: op.front, back: op.back })
+            .where(eq(flashcards.id, op.cardId))
+          updated.push({ id: op.cardId, front: op.front, back: op.back, reason: op.reason })
+        } else if (op.operation === 'delete' && op.cardId) {
+          const cardToDelete = existingCards.find(c => c.id === op.cardId)
+          if (cardToDelete) {
+            await db.delete(flashcards).where(eq(flashcards.id, op.cardId))
+            deleted.push({ id: op.cardId, front: cardToDelete.front, reason: op.reason })
+          }
         }
       }
-    }
 
-    // Generate flashcards from instructions
-    const result = await generateFromInstructions(
-      instructions,
-      existingCardSummary,
-      deckId ? 10 : 15, // More cards for new decks
-      customPrompt || undefined,
-      existingDeck?.name
-    )
+      // Get updated total count
+      const allCards = await db
+        .select()
+        .from(flashcards)
+        .where(eq(flashcards.deckId, deckId))
 
-    // If only suggesting a name (no cards), return early
-    if (result.action === 'suggest_name' && result.flashcards.length === 0) {
       return NextResponse.json({
         success: true,
-        action: 'suggest_name',
-        suggestedDeckName: result.suggestedDeckName,
         summary: result.summary,
-        cardsCreated: 0,
+        suggestedDeckName: result.suggestedDeckName,
+        cannotDo: result.cannotDo,
+        operations: { added, updated, deleted },
+        totalCards: allCards.length,
       })
     }
 
-    if (result.flashcards.length === 0 && result.action !== 'suggest_name') {
+    // For new decks, use the simpler generation flow
+    const result = await generateFromInstructions(
+      instructions,
+      undefined,
+      15,
+      customPrompt || undefined,
+      undefined
+    )
+
+    if (result.flashcards.length === 0) {
       return NextResponse.json(
         { error: 'No flashcards could be generated from these instructions' },
         { status: 400 }
       )
     }
 
-    // Create or use existing deck
-    let targetDeck
-    if (existingDeck) {
-      targetDeck = existingDeck
-    } else {
-      // Use provided name, AI-generated name, or fallback
-      const finalName = deckName?.trim() ||
-        result.deckName?.trim() ||
-        'New Deck'
+    // Create new deck
+    const finalName = deckName?.trim() || result.deckName?.trim() || 'New Deck'
+    const [newDeck] = await db.insert(decks).values({
+      name: finalName,
+      description: `Generated from: "${instructions.trim().slice(0, 100)}${instructions.length > 100 ? '...' : ''}"`,
+    }).returning()
 
-      const [newDeck] = await db.insert(decks).values({
-        name: finalName,
-        description: `Generated from: "${instructions.trim().slice(0, 100)}${instructions.length > 100 ? '...' : ''}"`,
-      }).returning()
-      targetDeck = newDeck
-    }
-
-    // Insert new flashcards
+    // Insert flashcards
     const cardValues = result.flashcards.map(card => ({
-      deckId: targetDeck.id,
+      deckId: newDeck.id,
       front: card.front,
       back: card.back,
     }))
-
     await db.insert(flashcards).values(cardValues)
-
-    // Get total card count
-    const allCards = await db
-      .select()
-      .from(flashcards)
-      .where(eq(flashcards.deckId, targetDeck.id))
 
     return NextResponse.json({
       success: true,
-      deck: targetDeck,
-      cardsCreated: result.flashcards.length,
-      totalCards: allCards.length,
-      isNewDeck: !existingDeck,
-      action: result.action,
+      deck: newDeck,
+      isNewDeck: true,
       summary: result.summary,
-      suggestedDeckName: result.suggestedDeckName,
+      operations: {
+        added: result.flashcards.map(c => ({ front: c.front, back: c.back })),
+        updated: [],
+        deleted: [],
+      },
+      totalCards: result.flashcards.length,
     })
   } catch (error) {
     console.error('Generate error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to generate flashcards', details: errorMessage },
+      { error: 'Failed to process request', details: errorMessage },
       { status: 500 }
     )
   }
