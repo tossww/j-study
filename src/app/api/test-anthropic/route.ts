@@ -16,6 +16,7 @@ export async function GET() {
   try {
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: 8000, // 8 seconds to stay under Vercel's 10s limit
     })
 
     const message = await anthropic.messages.create({
