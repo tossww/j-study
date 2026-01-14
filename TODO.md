@@ -30,14 +30,22 @@
 > **Rule: Each Claude session updates ONLY its own component's context.**
 
 ### Core
-**Last Session:** 2026-01-13 17:42
+**Last Session:** 2026-01-14 17:16
 
-M6 complete. `/api/generate` now supports creating NEW decks (deckId optional), derives deck name from instructions.
+Post-M6 enhancements:
+- Fixed Vercel deployment protection blocking API calls
+- Replaced Anthropic SDK with raw fetch (fixes serverless timeout issue)
+- Using Haiku model for faster responses
+- Smart AI with intent detection (generate cards vs suggest deck name)
+- AI generates deck name when not provided
 
 ### UI
-**Last Session:** 2026-01-13 17:42
+**Last Session:** 2026-01-14 17:16
 
-M6 complete. "Create New Deck" page redesigned (instructions-first, file optional). Success toast on edit page AI generation. Exit button added to study mode.
+Post-M6 enhancements:
+- Edit button on flashcards during study mode (inline editing without leaving session)
+- Summary popup modal after AI generation (shows stats: +X cards added, Y total)
+- Suggested deck name UI integrated into popup with Apply/Skip buttons
 
 ---
 

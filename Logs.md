@@ -6,6 +6,27 @@
 
 ## Session Log
 
+## 2026-01-14 17:16 - Session Handoff
+**Milestone:** Post-M6 Enhancements
+**Summary:** Fixed critical Vercel timeout bug, added smart AI features (intent detection, deck naming), and improved study mode UX
+**Completed:**
+- Fixed Vercel deployment protection blocking API calls (disabled via API)
+- Replaced Anthropic SDK with raw fetch (fixes serverless timeout issue)
+- Switched to Haiku model for faster serverless responses
+- Added edit button to flashcards during study mode
+- AI now generates deck name when not provided
+- Smart AI with intent detection (generate cards vs suggest name vs both)
+- Summary popup modal after AI generation with stats
+- Suggested deck name UI integrated into popup with Apply/Skip buttons
+**Key Decisions:**
+- Raw fetch instead of Anthropic SDK (SDK had connection issues in Vercel serverless)
+- Haiku model for speed (Sonnet was timing out on Hobby tier)
+- Unified popup shows summary + stats + suggested name all in one
+**Committed:** f1b639f, 5be5ae2, 00ac6a8, 0bc6713, 9c38679, d71fa29
+**Next Focus:** App fully functional. Consider: keyboard shortcuts, mobile improvements, deck categories
+
+---
+
 ## 2026-01-13 17:42 - Session Handoff
 **Milestone:** M6 - Unified Deck Creation + UX Fixes
 **Summary:** Complete UX audit → scoped M6 → implemented unified deck creation with instructions-first approach + critical UX fixes
