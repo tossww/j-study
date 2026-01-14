@@ -6,8 +6,8 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-// Model to use - claude-sonnet-4-20250514 or fallback
-const MODEL = 'claude-sonnet-4-20250514'
+// Model to use - using Haiku for faster responses on serverless
+const MODEL = 'claude-3-5-haiku-20241022'
 
 export interface GeneratedFlashcard {
   front: string  // Question
@@ -27,7 +27,7 @@ export interface AnalysisResult {
 
 export async function generateFlashcards(content: string, maxCards: number = 20): Promise<GeneratedFlashcard[]> {
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: MODEL,
     max_tokens: 4096,
     messages: [
       {
@@ -105,7 +105,7 @@ ${additionalInstructions}
   const basePrompt = customPrompt || DEFAULT_PROMPT
 
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: MODEL,
     max_tokens: 4096,
     messages: [
       {
@@ -193,7 +193,7 @@ ${existingCards.sampleCards.slice(0, 3).map(c => `  Q: ${c.front}\n  A: ${c.back
   const basePrompt = customPrompt || `You are a study assistant that creates high-quality flashcards based on user instructions.`
 
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: MODEL,
     max_tokens: 4096,
     messages: [
       {
