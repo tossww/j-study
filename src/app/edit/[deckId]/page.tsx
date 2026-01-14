@@ -56,6 +56,11 @@ export default function EditDeckPage({
   const [aiSuccess, setAiSuccess] = useState<string | null>(null)
   const [suggestedName, setSuggestedName] = useState<string | null>(null)
   const [applyingName, setApplyingName] = useState(false)
+  const [summaryPopup, setSummaryPopup] = useState<{
+    summary: string
+    cardsAdded: number
+    action: string
+  } | null>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -289,37 +294,40 @@ export default function EditDeckPage({
           setSuggestedName(data.suggestedDeckName)
         }
 
-        // Use summary from AI if available
-        if (data.summary) {
-          setAiFile(null)
-          setAiInstructions('')
-          setAiSuccess(data.summary)
-          setTimeout(() => setAiSuccess(null), 6000)
+        // Show summary popup
+        setAiFile(null)
+        setAiInstructions('')
 
-          // Refresh cards list
-          const cardsRes = await fetch(`/api/flashcards/${deckId}`)
-          if (cardsRes.ok) {
-            const cardsData = await cardsRes.json()
-            setCards(cardsData)
-          }
-          return
+        // Refresh cards list
+        const cardsRes = await fetch(`/api/flashcards/${deckId}`)
+        if (cardsRes.ok) {
+          const cardsData = await cardsRes.json()
+          setCards(cardsData)
         }
+
+        // Show summary popup with stats
+        setSummaryPopup({
+          summary: data.summary || `Generated ${cardsCreated} flashcard${cardsCreated !== 1 ? 's' : ''}`,
+          cardsAdded: cardsCreated,
+          action: data.action || 'generate_cards'
+        })
+        return
       }
 
-      // Refresh cards list
+      // File-based generation fallback
       const cardsRes = await fetch(`/api/flashcards/${deckId}`)
       if (cardsRes.ok) {
         const cardsData = await cardsRes.json()
         setCards(cardsData)
       }
 
-      // Reset state and show success
       setAiFile(null)
       setAiInstructions('')
-      setAiSuccess(`${cardsCreated} new card${cardsCreated !== 1 ? 's' : ''} added!`)
-
-      // Clear success message after 4 seconds
-      setTimeout(() => setAiSuccess(null), 4000)
+      setSummaryPopup({
+        summary: `Generated ${cardsCreated} flashcard${cardsCreated !== 1 ? 's' : ''} from file`,
+        cardsAdded: cardsCreated,
+        action: 'generate_cards'
+      })
     } catch (err) {
       setAiError(err instanceof Error ? err.message : 'Generation failed')
     } finally {
@@ -717,6 +725,46 @@ export default function EditDeckPage({
           )}
         </div>
       </div>
+
+      {/* Summary Popup Modal */}
+      {summaryPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 text-center">
+            {/* Success icon */}
+            <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Done!</h3>
+            <p className="text-gray-600 mb-4">{summaryPopup.summary}</p>
+
+            {/* Stats */}
+            {summaryPopup.cardsAdded > 0 && (
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <div className="flex justify-center gap-6 text-sm">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">+{summaryPopup.cardsAdded}</p>
+                    <p className="text-gray-500">cards added</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary-600">{cards.length}</p>
+                    <p className="text-gray-500">total cards</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setSummaryPopup(null)}
+              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
