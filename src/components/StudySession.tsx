@@ -18,6 +18,12 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
   const [stats, setStats] = useState({ correct: 0, incorrect: 0 })
   const [completed, setCompleted] = useState(false)
 
+  // Edit modal state
+  const [editing, setEditing] = useState(false)
+  const [editFront, setEditFront] = useState('')
+  const [editBack, setEditBack] = useState('')
+  const [saving, setSaving] = useState(false)
+
   useEffect(() => {
     async function fetchCards() {
       try {
@@ -67,6 +73,38 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
     setCurrentIndex(0)
     setStats({ correct: 0, incorrect: 0 })
     setCompleted(false)
+  }
+
+  const handleEditClick = () => {
+    const card = cards[currentIndex]
+    setEditFront(card.front)
+    setEditBack(card.back)
+    setEditing(true)
+  }
+
+  const handleSaveEdit = async () => {
+    const card = cards[currentIndex]
+    setSaving(true)
+
+    try {
+      const response = await fetch(`/api/flashcards/card/${card.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ front: editFront, back: editBack }),
+      })
+
+      if (!response.ok) throw new Error('Failed to save')
+
+      // Update local state
+      setCards(prev => prev.map((c, i) =>
+        i === currentIndex ? { ...c, front: editFront, back: editBack } : c
+      ))
+      setEditing(false)
+    } catch {
+      alert('Failed to save changes')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) {
@@ -167,7 +205,56 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
         front={cards[currentIndex].front}
         back={cards[currentIndex].back}
         onResult={handleResult}
+        onEdit={handleEditClick}
       />
+
+      {/* Edit Modal */}
+      {editing && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Card</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Front (Question)</label>
+                <textarea
+                  value={editFront}
+                  onChange={(e) => setEditFront(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Back (Answer)</label>
+                <textarea
+                  value={editBack}
+                  onChange={(e) => setEditBack(e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditing(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={saving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving || !editFront.trim() || !editBack.trim()}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Session stats */}
       <div className="flex justify-center gap-8 mt-8 text-sm">
