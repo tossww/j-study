@@ -54,12 +54,12 @@ export default function EditDeckPage({
   const [generating, setGenerating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiSuccess, setAiSuccess] = useState<string | null>(null)
-  const [suggestedName, setSuggestedName] = useState<string | null>(null)
   const [applyingName, setApplyingName] = useState(false)
   const [summaryPopup, setSummaryPopup] = useState<{
     summary: string
     cardsAdded: number
     action: string
+    suggestedName?: string
   } | null>(null)
 
   useEffect(() => {
@@ -198,24 +198,25 @@ export default function EditDeckPage({
   }
 
   const handleApplySuggestedName = async () => {
-    if (!suggestedName) return
+    if (!summaryPopup?.suggestedName) return
     setApplyingName(true)
 
     try {
       const response = await fetch(`/api/decks/${deckId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: suggestedName }),
+        body: JSON.stringify({ name: summaryPopup.suggestedName }),
       })
 
       if (!response.ok) throw new Error('Failed to update name')
 
       // Update local state
       if (deck) {
-        setDeck({ ...deck, name: suggestedName })
+        setDeck({ ...deck, name: summaryPopup.suggestedName })
       }
-      setSuggestedName(null)
-      setAiSuccess(`Deck renamed to "${suggestedName}"`)
+      // Clear the suggested name from popup but keep popup open
+      setSummaryPopup(prev => prev ? { ...prev, suggestedName: undefined } : null)
+      setAiSuccess(`Deck renamed to "${summaryPopup.suggestedName}"`)
       setTimeout(() => setAiSuccess(null), 3000)
     } catch {
       setAiError('Failed to apply name')
@@ -280,36 +281,27 @@ export default function EditDeckPage({
 
         cardsCreated = data.cardsCreated
 
-        // Handle name suggestion action
-        if (data.action === 'suggest_name' && data.suggestedDeckName) {
-          setAiFile(null)
-          setAiInstructions('')
-          setSuggestedName(data.suggestedDeckName)
-          setGenerating(false)
-          return
-        }
-
-        // If cards were generated AND a name was suggested, show name option too
-        if (data.suggestedDeckName && data.cardsCreated > 0) {
-          setSuggestedName(data.suggestedDeckName)
-        }
-
         // Show summary popup
         setAiFile(null)
         setAiInstructions('')
 
-        // Refresh cards list
-        const cardsRes = await fetch(`/api/flashcards/${deckId}`)
-        if (cardsRes.ok) {
-          const cardsData = await cardsRes.json()
-          setCards(cardsData)
+        // Refresh cards list if cards were added
+        if (cardsCreated > 0) {
+          const cardsRes = await fetch(`/api/flashcards/${deckId}`)
+          if (cardsRes.ok) {
+            const cardsData = await cardsRes.json()
+            setCards(cardsData)
+          }
         }
 
-        // Show summary popup with stats
+        // Show summary popup with stats and suggested name
         setSummaryPopup({
-          summary: data.summary || `Generated ${cardsCreated} flashcard${cardsCreated !== 1 ? 's' : ''}`,
+          summary: data.summary || (data.action === 'suggest_name'
+            ? 'Here\'s a suggested name for your deck'
+            : `Generated ${cardsCreated} flashcard${cardsCreated !== 1 ? 's' : ''}`),
           cardsAdded: cardsCreated,
-          action: data.action || 'generate_cards'
+          action: data.action || 'generate_cards',
+          suggestedName: data.suggestedDeckName
         })
         return
       }
@@ -517,29 +509,6 @@ export default function EditDeckPage({
               </div>
             )}
 
-            {/* Suggested name prompt */}
-            {suggestedName && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800 mb-2">
-                  Suggested deck name: <span className="font-semibold">"{suggestedName}"</span>
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleApplySuggestedName}
-                    disabled={applyingName}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {applyingName ? 'Applying...' : 'Apply Name'}
-                  </button>
-                  <button
-                    onClick={() => setSuggestedName(null)}
-                    className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Error message */}
             {aiError && (
@@ -756,11 +725,36 @@ export default function EditDeckPage({
               </div>
             )}
 
+            {/* Suggested deck name */}
+            {summaryPopup.suggestedName && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800 mb-2">
+                  Suggested deck name:
+                </p>
+                <p className="text-lg font-semibold text-blue-900 mb-3">"{summaryPopup.suggestedName}"</p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={handleApplySuggestedName}
+                    disabled={applyingName}
+                    className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {applyingName ? 'Applying...' : 'Apply Name'}
+                  </button>
+                  <button
+                    onClick={() => setSummaryPopup(prev => prev ? { ...prev, suggestedName: undefined } : null)}
+                    className="px-4 py-1.5 text-sm bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                  >
+                    Skip
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={() => setSummaryPopup(null)}
               className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
-              Got it
+              {summaryPopup.suggestedName ? 'Close' : 'Got it'}
             </button>
           </div>
         </div>
