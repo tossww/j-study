@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { Suspense } from 'react'
 import DeckList from '@/components/DeckList'
 import StatsBar from '@/components/StatsBar'
@@ -12,34 +11,34 @@ export default async function StudyPage({
   const params = await searchParams
   const deckId = params.deck ? parseInt(params.deck) : null
 
-  return (
-    <div className="min-h-screen p-8">
+  if (deckId) {
+    return (
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <Link href="/" className="text-gray-600 hover:text-gray-900">
-            &larr; Back
-          </Link>
-          <Link
-            href="/upload"
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
-          >
-            + Add Deck
-          </Link>
-        </div>
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          </div>
+        }>
+          <StudySessionWrapper deckId={deckId} />
+        </Suspense>
+      </div>
+    )
+  }
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
-          {deckId ? 'Study Session' : 'Your Decks'}
-        </h1>
+  return (
+    <div className="max-w-6xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Your Decks</h1>
+        <p className="text-gray-500 mt-1">Select a deck to start studying</p>
+      </div>
 
-        <Suspense fallback={<div className="text-center">Loading...</div>}>
-          {deckId ? (
-            <StudySessionWrapper deckId={deckId} />
-          ) : (
-            <>
-              <StatsBar />
-              <DeckList />
-            </>
-          )}
+      <Suspense fallback={<div className="h-24 bg-white rounded-2xl animate-pulse" />}>
+        <StatsBar />
+      </Suspense>
+
+      <div className="mt-8">
+        <Suspense fallback={<div className="h-48 bg-white rounded-2xl animate-pulse" />}>
+          <DeckList />
         </Suspense>
       </div>
     </div>

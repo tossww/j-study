@@ -20,9 +20,9 @@
 - **M4** [UI] Deck Editing → `DONE`
 - **M5** [Core, UI] Upload Enhancements & Prompt Config → `DONE`
 - **M6** [UI] Unified Deck Creation + UX Fixes → `DONE`
-- **M7** [Core] Smart AI Card Operations → `ACTIVE`
-- **M8** [UI] Layout Redesign → `READY`
-- **M9** [Core, UI] Quiz Modes → `READY`
+- **M7** [Core] Smart AI Card Operations → `DONE`
+- **M8** [UI] Layout Redesign → `DONE`
+- **M9** [Core, UI] Quiz Modes → `ACTIVE`
 - **M10** [UI] SRS Visibility & Practice Mode → `READY`
 - **M11** [Core, UI] Reference Sheets → `READY`
 - **M12** [Core, UI] Nested Folders → `READY`
@@ -184,14 +184,14 @@ Post-M6 enhancements:
 **What:** Upgrade AI to understand its full capabilities and perform add/update/delete operations on cards through natural language. Single textbox UX remains - AI determines intent and acts accordingly.
 
 **Test Criteria:**
-- [ ] AI can add new cards (existing behavior)
-- [ ] AI can update existing cards by identifying which ones need fixing
-- [ ] AI can delete cards when asked (e.g., "remove the wrong cards")
-- [ ] AI responds gracefully when asked to do something it can't do
-- [ ] Summary popup shows detailed breakdown (cards added, updated, deleted with specifics)
-- [ ] Existing cards are passed to AI with IDs so it can reference them
+- [x] AI can add new cards (existing behavior)
+- [x] AI can update existing cards by identifying which ones need fixing
+- [x] AI can delete cards when asked (e.g., "remove the wrong cards")
+- [x] AI responds gracefully when asked to do something it can't do
+- [x] Summary popup shows detailed breakdown (cards added, updated, deleted with specifics)
+- [x] Existing cards are passed to AI with IDs so it can reference them
 
-**Status:** ACTIVE - Ready for testing
+**Status:** DONE
 
 ---
 
@@ -200,16 +200,16 @@ Post-M6 enhancements:
 **What:** Major UI overhaul with collapsible sidebar navigation, top header with search, and organized main content area. Inspired by modern dashboard layouts.
 
 **Test Criteria:**
-- [ ] Collapsible left sidebar with navigation (Home, Folders, Stats, Quiz, Settings)
-- [ ] User profile section in sidebar (placeholder until M13)
-- [ ] Top header with search bar and "Create Deck" button
-- [ ] Main content area with "Continue Studying" section
-- [ ] Recent decks displayed as cards
-- [ ] Soft, rounded design with pastel color palette
-- [ ] Responsive: sidebar collapses to icons on smaller screens
-- [ ] All existing functionality still works (study, edit, create, etc.)
+- [x] Collapsible left sidebar with navigation (Home, Folders, Stats, Quiz, Settings)
+- [x] User profile section in sidebar (placeholder until M13)
+- [x] Top header with search bar and "Create Deck" button
+- [x] Main content area with "Continue Studying" section
+- [x] Recent decks displayed as cards
+- [x] Soft, rounded design with pastel color palette
+- [x] Responsive: sidebar collapses to icons on smaller screens
+- [x] All existing functionality still works (study, edit, create, etc.)
 
-**Status:** READY
+**Status:** DONE
 
 ---
 
@@ -292,6 +292,16 @@ Post-M6 enhancements:
 ---
 
 ## Completed Milestones
+
+### M8 [UI] - Layout Redesign
+**Completed:** 2026-01-15
+**Commit:** pending
+Major UI overhaul with collapsible sidebar, top header with search, modern dashboard home page. Pastel color palette, responsive design with mobile hamburger menu.
+
+### M7 [Core] - Smart AI Card Operations
+**Completed:** 2026-01-15
+**Commit:** f0e496c
+AI can now add, update, and delete cards via natural language instructions. Summary popup shows detailed breakdown of all operations performed.
 
 ### M6 [UI] - Unified Deck Creation + UX Fixes
 **Completed:** 2026-01-13

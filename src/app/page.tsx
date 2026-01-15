@@ -1,40 +1,71 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
+import DeckList from '@/components/DeckList'
+import StatsBar from '@/components/StatsBar'
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-8">
-      <h1 className="text-4xl font-bold text-gray-900 mb-4">J-Study</h1>
-      <p className="text-lg text-gray-600 mb-8">AI-powered flashcard study app</p>
+    <div className="max-w-6xl mx-auto">
+      {/* Welcome section */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Welcome back!</h1>
+        <p className="text-gray-500 mt-1">Ready to continue learning?</p>
+      </div>
 
-      <div className="flex gap-4">
+      {/* Stats */}
+      <Suspense fallback={<div className="h-24 bg-white rounded-2xl animate-pulse" />}>
+        <StatsBar />
+      </Suspense>
+
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
         <Link
           href="/upload"
-          className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="group p-6 bg-gradient-to-br from-primary-50 to-accent-lavender rounded-2xl border border-primary-100 hover:shadow-soft transition-all"
         >
-          Create New Deck
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Create New Deck</h3>
+              <p className="text-sm text-gray-500">Generate flashcards with AI</p>
+            </div>
+          </div>
         </Link>
+
         <Link
           href="/study"
-          className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+          className="group p-6 bg-gradient-to-br from-accent-mint to-accent-sky rounded-2xl border border-green-100 hover:shadow-soft transition-all"
         >
-          Study Flashcards
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Study Now</h3>
+              <p className="text-sm text-gray-500">Continue where you left off</p>
+            </div>
+          </div>
         </Link>
       </div>
 
-      <div className="mt-12 text-center text-gray-500">
-        <p>Create flashcards with AI - just describe what you want to learn</p>
+      {/* Recent decks */}
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">Your Decks</h2>
+          <Link href="/study" className="text-sm text-primary-600 hover:text-primary-700">
+            View all
+          </Link>
+        </div>
+        <Suspense fallback={<div className="h-48 bg-white rounded-2xl animate-pulse" />}>
+          <DeckList />
+        </Suspense>
       </div>
-
-      <Link
-        href="/options"
-        className="fixed bottom-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-        title="Options"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      </Link>
     </div>
   )
 }
