@@ -22,16 +22,23 @@ A personal flashcard study app inspired by Gizmo. Upload study materials (PDFs, 
 - [x] **Flashcard Study Mode:** Flip cards, mark as known/unknown, track progress
 - [x] **Spaced Repetition:** Simple SRS to prioritize cards you don't know well
 
+### Planned Features (Next Milestones)
+
+- **Layout Redesign (M8):** Collapsible sidebar, top header with search, modern dashboard layout
+- **Quiz Modes (M9):** Multiple choice, fill-in-the-blank, typed answers with mode selector
+- **SRS Visibility (M10):** Show SRS grading on cards, practice weak cards mode
+- **Reference Sheets (M11):** View uploaded files while studying as reference material
+- **Nested Folders (M12):** Organize decks into nested folder structure
+- **User Accounts (M13):** Email/password + magic link authentication
+
 ### Future Features (Nice-to-Have)
 
-- **Manual Card Creation:** Add flashcards manually without file upload
-- **Deck Organization:** Group flashcards into decks/subjects
 - **Export:** Export flashcards to CSV or Anki format
-- **Statistics:** Study streaks, accuracy graphs
+- **YouTube Import:** Generate flashcards from YouTube video transcripts
+- **AI Tutor:** Chat interface to ask questions about deck content
 
 ### Not Building (Out of Scope)
 
-- **User Authentication:** Single user, no login needed
 - **Social Features:** No sharing, no friends, no leaderboards
 - **Mobile App:** Web only (responsive design works on mobile browser)
 

@@ -21,6 +21,12 @@
 - **M5** [Core, UI] Upload Enhancements & Prompt Config → `DONE`
 - **M6** [UI] Unified Deck Creation + UX Fixes → `DONE`
 - **M7** [Core] Smart AI Card Operations → `ACTIVE`
+- **M8** [UI] Layout Redesign → `READY`
+- **M9** [Core, UI] Quiz Modes → `READY`
+- **M10** [UI] SRS Visibility & Practice Mode → `READY`
+- **M11** [Core, UI] Reference Sheets → `READY`
+- **M12** [Core, UI] Nested Folders → `READY`
+- **M13** [Core, UI] User Accounts → `READY`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
 
@@ -186,6 +192,102 @@ Post-M6 enhancements:
 - [ ] Existing cards are passed to AI with IDs so it can reference them
 
 **Status:** ACTIVE - Ready for testing
+
+---
+
+### M8 [UI] - Layout Redesign
+
+**What:** Major UI overhaul with collapsible sidebar navigation, top header with search, and organized main content area. Inspired by modern dashboard layouts.
+
+**Test Criteria:**
+- [ ] Collapsible left sidebar with navigation (Home, Folders, Stats, Quiz, Settings)
+- [ ] User profile section in sidebar (placeholder until M13)
+- [ ] Top header with search bar and "Create Deck" button
+- [ ] Main content area with "Continue Studying" section
+- [ ] Recent decks displayed as cards
+- [ ] Soft, rounded design with pastel color palette
+- [ ] Responsive: sidebar collapses to icons on smaller screens
+- [ ] All existing functionality still works (study, edit, create, etc.)
+
+**Status:** READY
+
+---
+
+### M9 [Core, UI] - Quiz Modes
+
+**What:** Add quiz functionality with multiple question types. Users can choose specific types or combine for mixed quizzes.
+
+**Test Criteria:**
+- [ ] Multiple choice questions generated from flashcards (AI generates wrong options)
+- [ ] Fill-in-the-blank questions generated (AI identifies key terms to blank out)
+- [ ] Typed answer questions (user types, AI grades correctness)
+- [ ] Mode selector before quiz: pick one type or combine multiple
+- [ ] Scoring system with results at end
+- [ ] Can quiz on specific deck or all cards
+
+**Status:** READY
+
+---
+
+### M10 [UI] - SRS Visibility & Practice Mode
+
+**What:** Show SRS grading on flashcards and add ability to practice weak cards specifically.
+
+**Test Criteria:**
+- [ ] SRS level visible on each card (visual indicator: color, number, or label)
+- [ ] Keep existing 2-button system (Know / Don't Know)
+- [ ] "Practice Weak Cards" filter mode (only shows low-SRS cards)
+- [ ] Can see SRS stats per card in deck edit view
+
+**Status:** READY
+
+---
+
+### M11 [Core, UI] - Reference Sheets
+
+**What:** Store uploaded files and allow viewing them while studying as reference material.
+
+**Test Criteria:**
+- [ ] Uploaded files stored (not just text extracted)
+- [ ] Can view original file from deck page
+- [ ] Side panel or toggle to view file while studying
+- [ ] Supports PDF, TXT, MD viewing
+- [ ] File associated with deck (one file per deck, or multiple?)
+
+**Status:** READY
+
+---
+
+### M12 [Core, UI] - Nested Folders
+
+**What:** Organize decks into a nested folder structure.
+
+**Test Criteria:**
+- [ ] Can create folders
+- [ ] Can create folders inside folders (nested)
+- [ ] Can move decks into folders
+- [ ] Can move decks between folders
+- [ ] Can rename/delete folders
+- [ ] Folder navigation UI (breadcrumbs or tree view)
+- [ ] Home shows top-level folders and unfiled decks
+
+**Status:** READY
+
+---
+
+### M13 [Core, UI] - User Accounts
+
+**What:** Add authentication so multiple users can have their own data.
+
+**Test Criteria:**
+- [ ] Email/password registration and login
+- [ ] Magic link login (email link, no password)
+- [ ] User-specific decks (each user sees only their decks)
+- [ ] Existing data migration strategy (assign to first user or admin)
+- [ ] Logout functionality
+- [ ] Protected routes (redirect to login if not authenticated)
+
+**Status:** READY
 
 ---
 
