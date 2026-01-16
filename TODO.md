@@ -22,8 +22,8 @@
 - **M6** [UI] Unified Deck Creation + UX Fixes → `DONE`
 - **M7** [Core] Smart AI Card Operations → `DONE`
 - **M8** [UI] Layout Redesign → `DONE`
-- **M9** [Core, UI] Quiz Modes → `ACTIVE`
-- **M10** [UI] SRS Visibility & Practice Mode → `READY`
+- **M9** [Core, UI] Quiz Modes → `DONE`
+- **M10** [UI] SRS Visibility & Practice Mode → `ACTIVE`
 - **M11** [Core, UI] Reference Sheets → `READY`
 - **M12** [Core, UI] Nested Folders → `READY`
 - **M13** [Core, UI] User Accounts → `READY`
@@ -218,14 +218,14 @@ Post-M6 enhancements:
 **What:** Add quiz functionality with multiple question types. Users can choose specific types or combine for mixed quizzes.
 
 **Test Criteria:**
-- [ ] Multiple choice questions generated from flashcards (AI generates wrong options)
-- [ ] Fill-in-the-blank questions generated (AI identifies key terms to blank out)
-- [ ] Typed answer questions (user types, AI grades correctness)
-- [ ] Mode selector before quiz: pick one type or combine multiple
-- [ ] Scoring system with results at end
-- [ ] Can quiz on specific deck or all cards
+- [x] Multiple choice questions generated from flashcards (AI generates wrong options)
+- [x] Fill-in-the-blank questions generated (AI identifies key terms to blank out)
+- [x] Typed answer questions (user types, AI grades correctness)
+- [x] Mode selector before quiz: pick one type or combine multiple
+- [x] Scoring system with results at end
+- [x] Can quiz on specific deck or all cards
 
-**Status:** READY
+**Status:** DONE
 
 ---
 
@@ -293,9 +293,14 @@ Post-M6 enhancements:
 
 ## Completed Milestones
 
-### M8 [UI] - Layout Redesign
+### M9 [Core, UI] - Quiz Modes
 **Completed:** 2026-01-15
 **Commit:** pending
+Quiz system with multiple choice (AI-generated distractors), fill-in-blank, and typed answers. Two-step flow: select deck then configure settings. Scoring and results screen.
+
+### M8 [UI] - Layout Redesign
+**Completed:** 2026-01-15
+**Commit:** cb81cbc
 Major UI overhaul with collapsible sidebar, top header with search, modern dashboard home page. Pastel color palette, responsive design with mobile hamburger menu.
 
 ### M7 [Core] - Smart AI Card Operations
