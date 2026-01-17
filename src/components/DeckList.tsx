@@ -149,6 +149,16 @@ export default function DeckList() {
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Link
+                href={`/study?deck=${deck.id}&weak=true`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-colors"
+                title="Practice weak cards"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </Link>
+              <Link
                 href={`/edit/${deck.id}`}
                 onClick={(e) => e.stopPropagation()}
                 className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-colors"

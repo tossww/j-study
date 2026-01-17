@@ -15,6 +15,26 @@ interface Flashcard {
   deckId: number
   front: string
   back: string
+  easeFactor: number
+  interval: number
+  repetitions: number
+  timesCorrect: number
+  timesIncorrect: number
+}
+
+// Calculate SRS level based on repetitions and interval
+function getSRSLevel(card: Flashcard): { label: string; color: string; bgColor: string } {
+  const { repetitions, interval } = card
+
+  if (repetitions === 0) {
+    return { label: 'New', color: 'text-blue-600', bgColor: 'bg-blue-100' }
+  } else if (repetitions <= 2 || interval <= 3) {
+    return { label: 'Learning', color: 'text-orange-600', bgColor: 'bg-orange-100' }
+  } else if (repetitions <= 4 || interval <= 14) {
+    return { label: 'Review', color: 'text-yellow-600', bgColor: 'bg-yellow-100' }
+  } else {
+    return { label: 'Mastered', color: 'text-green-600', bgColor: 'bg-green-100' }
+  }
 }
 
 export default function EditDeckPage({
@@ -663,6 +683,23 @@ export default function EditDeckPage({
                     <div className="flex-1 pr-4">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs text-gray-400">#{index + 1}</span>
+                        {/* SRS Badge */}
+                        {(() => {
+                          const srs = getSRSLevel(card)
+                          return (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${srs.bgColor} ${srs.color}`}>
+                              {srs.label}
+                            </span>
+                          )
+                        })()}
+                        {/* SRS Stats */}
+                        {card.repetitions > 0 && (
+                          <span className="text-xs text-gray-400">
+                            {card.interval}d • {card.timesCorrect + card.timesIncorrect > 0
+                              ? Math.round((card.timesCorrect / (card.timesCorrect + card.timesIncorrect)) * 100)
+                              : 0}% acc
+                          </span>
+                        )}
                       </div>
                       <div className="mb-2">
                         <span className="text-xs font-medium text-gray-500 uppercase">Front</span>

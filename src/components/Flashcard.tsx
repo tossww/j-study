@@ -2,15 +2,40 @@
 
 import { useState } from 'react'
 
+interface SRSData {
+  repetitions: number
+  interval: number
+  easeFactor: number
+}
+
 interface FlashcardProps {
   front: string
   back: string
   onResult: (correct: boolean) => void
   onEdit?: () => void
+  srsData?: SRSData
 }
 
-export default function Flashcard({ front, back, onResult, onEdit }: FlashcardProps) {
+// Calculate SRS level based on repetitions and interval
+function getSRSLevel(srs?: SRSData): { label: string; color: string; bgColor: string } {
+  if (!srs) return { label: 'New', color: 'text-gray-600', bgColor: 'bg-gray-100' }
+
+  const { repetitions, interval } = srs
+
+  if (repetitions === 0) {
+    return { label: 'New', color: 'text-blue-600', bgColor: 'bg-blue-100' }
+  } else if (repetitions <= 2 || interval <= 3) {
+    return { label: 'Learning', color: 'text-orange-600', bgColor: 'bg-orange-100' }
+  } else if (repetitions <= 4 || interval <= 14) {
+    return { label: 'Review', color: 'text-yellow-600', bgColor: 'bg-yellow-100' }
+  } else {
+    return { label: 'Mastered', color: 'text-green-600', bgColor: 'bg-green-100' }
+  }
+}
+
+export default function Flashcard({ front, back, onResult, onEdit, srsData }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false)
+  const srsLevel = getSRSLevel(srsData)
 
   const handleFlip = () => {
     setFlipped(!flipped)
@@ -23,6 +48,16 @@ export default function Flashcard({ front, back, onResult, onEdit }: FlashcardPr
 
   return (
     <div className="w-full max-w-lg mx-auto">
+      {/* SRS Level Badge */}
+      <div className="flex justify-center mb-3">
+        <span className={`px-3 py-1 rounded-full text-xs font-medium ${srsLevel.bgColor} ${srsLevel.color}`}>
+          {srsLevel.label}
+          {srsData && srsData.interval > 0 && (
+            <span className="ml-1 opacity-75">• {srsData.interval}d interval</span>
+          )}
+        </span>
+      </div>
+
       {/* Flashcard */}
       <div
         className="flip-card h-64 cursor-pointer"

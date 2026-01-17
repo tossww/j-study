@@ -23,7 +23,7 @@
 - **M7** [Core] Smart AI Card Operations → `DONE`
 - **M8** [UI] Layout Redesign → `DONE`
 - **M9** [Core, UI] Quiz Modes → `DONE`
-- **M10** [UI] SRS Visibility & Practice Mode → `ACTIVE`
+- **M10** [UI] SRS Visibility & Practice Mode → `DONE`
 - **M11** [Core, UI] Reference Sheets → `READY`
 - **M12** [Core, UI] Nested Folders → `READY`
 - **M13** [Core, UI] User Accounts → `READY`
@@ -57,12 +57,30 @@ Implemented full AI card CRUD operations. AI now understands it can add, update,
 - Changes need to be committed
 
 ### UI
-**Last Session:** 2026-01-14 17:16
+**Last Session:** 2026-01-15
 
-Post-M6 enhancements:
-- Edit button on flashcards during study mode (inline editing without leaving session)
-- Summary popup modal after AI generation (shows stats: +X cards added, Y total)
-- Suggested deck name UI integrated into popup with Apply/Skip buttons
+**Milestone:** M10 - SRS Visibility & Practice Mode (Completed)
+
+**What happened:**
+Completed M10 with full SRS visibility features:
+- Added SRS level badges to Flashcard component (New/Learning/Review/Mastered with colors)
+- StudySession now passes SRS data to flashcards during study
+- Deck edit view shows SRS badge + stats (interval, accuracy) per card
+- Added "Practice Weak Cards" mode - filters to only New/Learning cards
+- Lightning bolt button on deck list to practice weak cards
+- Badge in study header when in weak cards mode
+- Empty state message when no weak cards exist
+
+**Key changes:**
+- `src/components/Flashcard.tsx` - SRS level badge with getSRSLevel()
+- `src/components/StudySession.tsx` - weakOnly filter, isWeakCard() helper
+- `src/app/edit/[deckId]/page.tsx` - SRS stats per card in list
+- `src/components/DeckList.tsx` - Practice weak button
+- `src/app/study/page.tsx` - weak query param support
+
+**Next up:**
+- M11: Reference Sheets, M12: Nested Folders, or M13: User Accounts
+- Changes need to be committed
 
 ---
 
@@ -234,12 +252,12 @@ Post-M6 enhancements:
 **What:** Show SRS grading on flashcards and add ability to practice weak cards specifically.
 
 **Test Criteria:**
-- [ ] SRS level visible on each card (visual indicator: color, number, or label)
-- [ ] Keep existing 2-button system (Know / Don't Know)
-- [ ] "Practice Weak Cards" filter mode (only shows low-SRS cards)
-- [ ] Can see SRS stats per card in deck edit view
+- [x] SRS level visible on each card (visual indicator: color, number, or label)
+- [x] Keep existing 2-button system (Know / Don't Know)
+- [x] "Practice Weak Cards" filter mode (only shows low-SRS cards)
+- [x] Can see SRS stats per card in deck edit view
 
-**Status:** READY
+**Status:** DONE
 
 ---
 
@@ -293,9 +311,13 @@ Post-M6 enhancements:
 
 ## Completed Milestones
 
+### M10 [UI] - SRS Visibility & Practice Mode
+**Completed:** 2026-01-15
+SRS level badges (New/Learning/Review/Mastered) shown on flashcards during study and in deck edit view. Practice Weak Cards mode filters to only show low-SRS cards. SRS stats (interval, accuracy) visible per card in edit view.
+
 ### M9 [Core, UI] - Quiz Modes
 **Completed:** 2026-01-15
-**Commit:** pending
+**Commit:** fb47b4e
 Quiz system with multiple choice (AI-generated distractors), fill-in-blank, and typed answers. Two-step flow: select deck then configure settings. Scoring and results screen.
 
 ### M8 [UI] - Layout Redesign

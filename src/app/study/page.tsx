@@ -6,10 +6,11 @@ import StudySessionWrapper from './StudySessionWrapper'
 export default async function StudyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ deck?: string }>
+  searchParams: Promise<{ deck?: string; weak?: string }>
 }) {
   const params = await searchParams
   const deckId = params.deck ? parseInt(params.deck) : null
+  const weakOnly = params.weak === 'true'
 
   if (deckId) {
     return (
@@ -19,7 +20,7 @@ export default async function StudyPage({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
         }>
-          <StudySessionWrapper deckId={deckId} />
+          <StudySessionWrapper deckId={deckId} weakOnly={weakOnly} />
         </Suspense>
       </div>
     )

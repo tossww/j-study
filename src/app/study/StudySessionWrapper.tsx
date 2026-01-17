@@ -5,6 +5,7 @@ import StudySession from '@/components/StudySession'
 
 interface StudySessionWrapperProps {
   deckId: number
+  weakOnly?: boolean
 }
 
 interface Deck {
@@ -12,7 +13,7 @@ interface Deck {
   name: string
 }
 
-export default function StudySessionWrapper({ deckId }: StudySessionWrapperProps) {
+export default function StudySessionWrapper({ deckId, weakOnly = false }: StudySessionWrapperProps) {
   const [deck, setDeck] = useState<Deck | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,5 +53,5 @@ export default function StudySessionWrapper({ deckId }: StudySessionWrapperProps
     )
   }
 
-  return <StudySession deckId={deckId} deckName={deck.name} />
+  return <StudySession deckId={deckId} deckName={deck.name} weakOnly={weakOnly} />
 }

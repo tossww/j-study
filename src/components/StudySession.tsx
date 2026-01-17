@@ -8,9 +8,17 @@ import type { Flashcard as FlashcardType } from '@/db/schema'
 interface StudySessionProps {
   deckId: number
   deckName: string
+  weakOnly?: boolean
 }
 
-export default function StudySession({ deckId, deckName }: StudySessionProps) {
+// Check if a card is "weak" (New or Learning)
+function isWeakCard(card: FlashcardType): boolean {
+  const { repetitions, interval } = card
+  // New or Learning cards
+  return repetitions === 0 || repetitions <= 2 || interval <= 3
+}
+
+export default function StudySession({ deckId, deckName, weakOnly = false }: StudySessionProps) {
   const [cards, setCards] = useState<FlashcardType[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -30,7 +38,9 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
         const response = await fetch(`/api/flashcards/${deckId}`)
         if (!response.ok) throw new Error('Failed to fetch cards')
         const data = await response.json()
-        setCards(data)
+        // Filter for weak cards if weakOnly mode
+        const filteredCards = weakOnly ? data.filter(isWeakCard) : data
+        setCards(filteredCards)
       } catch {
         setError('Failed to load flashcards')
       } finally {
@@ -39,7 +49,7 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
     }
 
     fetchCards()
-  }, [deckId])
+  }, [deckId, weakOnly])
 
   const handleResult = async (correct: boolean) => {
     const card = cards[currentIndex]
@@ -126,7 +136,17 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
   if (cards.length === 0) {
     return (
       <div className="text-center p-8">
-        <p className="text-gray-600">No flashcards in this deck</p>
+        <p className="text-gray-600">
+          {weakOnly ? 'No weak cards to practice! All cards are well-learned.' : 'No flashcards in this deck'}
+        </p>
+        {weakOnly && (
+          <Link
+            href={`/study?deck=${deckId}`}
+            className="inline-block mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Study All Cards
+          </Link>
+        )}
       </div>
     )
   }
@@ -189,6 +209,11 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
             </Link>
             <span className="text-gray-300">|</span>
             <span>{deckName}</span>
+            {weakOnly && (
+              <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-xs rounded-full font-medium">
+                Weak Cards
+              </span>
+            )}
           </div>
           <span>{currentIndex + 1} / {cards.length}</span>
         </div>
@@ -206,6 +231,11 @@ export default function StudySession({ deckId, deckName }: StudySessionProps) {
         back={cards[currentIndex].back}
         onResult={handleResult}
         onEdit={handleEditClick}
+        srsData={{
+          repetitions: cards[currentIndex].repetitions,
+          interval: cards[currentIndex].interval,
+          easeFactor: cards[currentIndex].easeFactor,
+        }}
       />
 
       {/* Edit Modal */}
