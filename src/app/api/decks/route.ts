@@ -1,16 +1,21 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db, decks, flashcards } from '@/db'
-import { desc, eq, sql } from 'drizzle-orm'
+import { desc, eq, sql, isNull } from 'drizzle-orm'
 
 // GET /api/decks - Get all decks with card counts and accuracy stats
-export async function GET() {
+// Query params: ?folderId=X (filter by folder), ?folderId=null (unfiled only)
+export async function GET(request: NextRequest) {
   try {
-    const allDecks = await db
+    const { searchParams } = new URL(request.url)
+    const folderIdParam = searchParams.get('folderId')
+
+    let query = db
       .select({
         id: decks.id,
         name: decks.name,
         description: decks.description,
         sourceFileName: decks.sourceFileName,
+        folderId: decks.folderId,
         createdAt: decks.createdAt,
         updatedAt: decks.updatedAt,
         cardCount: sql<number>`count(${flashcards.id})::int`,
@@ -21,6 +26,22 @@ export async function GET() {
       .leftJoin(flashcards, eq(decks.id, flashcards.deckId))
       .groupBy(decks.id)
       .orderBy(desc(decks.updatedAt))
+      .$dynamic()
+
+    // Filter by folder if specified
+    if (folderIdParam !== null) {
+      if (folderIdParam === 'null') {
+        // Get unfiled decks only
+        query = query.where(isNull(decks.folderId))
+      } else {
+        const folderId = parseInt(folderIdParam)
+        if (!isNaN(folderId)) {
+          query = query.where(eq(decks.folderId, folderId))
+        }
+      }
+    }
+
+    const allDecks = await query
 
     // Calculate accuracy percentage for each deck
     const decksWithAccuracy = allDecks.map(deck => {

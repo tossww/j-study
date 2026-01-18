@@ -1,5 +1,15 @@
 import { pgTable, serial, text, timestamp, integer, boolean } from 'drizzle-orm/pg-core'
 
+// Folders table - organize decks into hierarchy (max 3 levels)
+export const folders = pgTable('folders', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  parentId: integer('parent_id'),  // Self-reference, null for root folders
+  depth: integer('depth').default(0).notNull(), // 0, 1, or 2 (enforced in API)
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // Decks table - groups of flashcards
 export const decks = pgTable('decks', {
   id: serial('id').primaryKey(),
@@ -7,6 +17,7 @@ export const decks = pgTable('decks', {
   description: text('description'),
   sourceFileName: text('source_file_name'),
   analysis: text('analysis'), // JSON string with AI feedback
+  folderId: integer('folder_id').references(() => folders.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -52,6 +63,8 @@ export const studySessions = pgTable('study_sessions', {
 })
 
 // Types for TypeScript
+export type Folder = typeof folders.$inferSelect
+export type NewFolder = typeof folders.$inferInsert
 export type Deck = typeof decks.$inferSelect
 export type NewDeck = typeof decks.$inferInsert
 export type Flashcard = typeof flashcards.$inferSelect

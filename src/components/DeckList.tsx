@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -9,11 +9,23 @@ interface Deck {
   name: string
   description: string | null
   sourceFileName: string | null
+  folderId: number | null
   createdAt: string
   updatedAt: string
   cardCount: number
   accuracy: number | null
   totalAttempts: number
+}
+
+interface Folder {
+  id: number
+  name: string
+  parentId: number | null
+  depth: number
+}
+
+interface DeckListProps {
+  folderId?: number | null
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -32,20 +44,41 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function DeckList() {
+export default function DeckList({ folderId }: DeckListProps = {}) {
   const router = useRouter()
   const [decks, setDecks] = useState<Deck[]>([])
+  const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [moveMenuOpen, setMoveMenuOpen] = useState<number | null>(null)
+  const [movingId, setMovingId] = useState<number | null>(null)
+  const [expandedMoveFolder, setExpandedMoveFolder] = useState<number | null>(null)
+  const moveMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    async function fetchDecks() {
+    async function fetchData() {
       try {
-        const response = await fetch('/api/decks')
-        if (!response.ok) throw new Error('Failed to fetch decks')
-        const data = await response.json()
-        setDecks(data)
+        // Build URL with folder filter if specified
+        let url = '/api/decks'
+        if (folderId !== undefined) {
+          url += `?folderId=${folderId === null ? 'null' : folderId}`
+        }
+
+        // Fetch decks and folders in parallel
+        const [decksRes, foldersRes] = await Promise.all([
+          fetch(url),
+          fetch('/api/folders')
+        ])
+
+        if (!decksRes.ok) throw new Error('Failed to fetch decks')
+        const decksData = await decksRes.json()
+        setDecks(decksData)
+
+        if (foldersRes.ok) {
+          const foldersData = await foldersRes.json()
+          setFolders(foldersData)
+        }
       } catch {
         setError('Failed to load decks')
       } finally {
@@ -53,7 +86,19 @@ export default function DeckList() {
       }
     }
 
-    fetchDecks()
+    fetchData()
+  }, [folderId])
+
+  // Close move menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (moveMenuRef.current && !moveMenuRef.current.contains(event.target as Node)) {
+        setMoveMenuOpen(null)
+        setExpandedMoveFolder(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const handleDelete = async (e: React.MouseEvent, deckId: number, deckName: string) => {
@@ -75,6 +120,45 @@ export default function DeckList() {
       setDeletingId(null)
     }
   }
+
+  const handleMove = async (e: React.MouseEvent, deckId: number, targetFolderId: number | null) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    setMovingId(deckId)
+    setMoveMenuOpen(null)
+
+    try {
+      const response = await fetch(`/api/decks/${deckId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: targetFolderId }),
+      })
+
+      if (!response.ok) throw new Error('Failed to move deck')
+
+      // Remove deck from current list if we're viewing a specific folder
+      if (folderId !== undefined) {
+        setDecks(decks.filter(d => d.id !== deckId))
+      } else {
+        // Update the deck's folderId in the list
+        setDecks(decks.map(d => d.id === deckId ? { ...d, folderId: targetFolderId } : d))
+      }
+    } catch {
+      alert('Failed to move deck')
+    } finally {
+      setMovingId(null)
+    }
+  }
+
+  // Get root-level folders (no parent)
+  const getRootFolders = () => folders.filter(f => f.parentId === null)
+
+  // Get child folders of a parent
+  const getChildFolders = (parentId: number) => folders.filter(f => f.parentId === parentId)
+
+  // Check if folder has children
+  const hasChildren = (folderId: number) => folders.some(f => f.parentId === folderId)
 
   if (loading) {
     return (
@@ -168,6 +252,132 @@ export default function DeckList() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </Link>
+              {/* Move to folder button */}
+              <div className="relative" ref={moveMenuOpen === deck.id ? moveMenuRef : null}>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (moveMenuOpen === deck.id) {
+                      setMoveMenuOpen(null)
+                      setExpandedMoveFolder(null)
+                    } else {
+                      setMoveMenuOpen(deck.id)
+                      setExpandedMoveFolder(null)
+                    }
+                  }}
+                  disabled={movingId === deck.id}
+                  className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors disabled:opacity-50"
+                  title="Move to folder"
+                >
+                  {movingId === deck.id ? (
+                    <span className="block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                  )}
+                </button>
+                {/* Move dropdown - hierarchical */}
+                {moveMenuOpen === deck.id && (
+                  <div className="absolute right-0 top-10 z-50 bg-white rounded-xl shadow-lg border border-gray-200 py-2 min-w-[220px] max-h-72 overflow-y-auto">
+                    {/* Header with back button when in subfolder */}
+                    {expandedMoveFolder !== null ? (
+                      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 mb-1">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            const currentFolder = folders.find(f => f.id === expandedMoveFolder)
+                            setExpandedMoveFolder(currentFolder?.parentId ?? null)
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                        <span className="text-sm font-medium text-gray-700 truncate">
+                          {folders.find(f => f.id === expandedMoveFolder)?.name}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="px-3 py-1 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        Move to
+                      </div>
+                    )}
+
+                    {/* Move here button when viewing a folder */}
+                    {expandedMoveFolder !== null && expandedMoveFolder !== deck.folderId && (
+                      <button
+                        onClick={(e) => handleMove(e, deck.id, expandedMoveFolder)}
+                        className="w-full px-3 py-2 text-left text-sm text-primary-600 hover:bg-primary-50 flex items-center gap-2 font-medium"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Move here</span>
+                      </button>
+                    )}
+
+                    {/* Unfiled option - only at root level */}
+                    {expandedMoveFolder === null && deck.folderId !== null && (
+                      <button
+                        onClick={(e) => handleMove(e, deck.id, null)}
+                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <span>Unfiled (Root)</span>
+                      </button>
+                    )}
+
+                    {/* Folder list - show root folders or children of expanded folder */}
+                    {(expandedMoveFolder === null ? getRootFolders() : getChildFolders(expandedMoveFolder))
+                      .filter(f => f.id !== deck.folderId)
+                      .map(folder => (
+                        <button
+                          key={folder.id}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            if (hasChildren(folder.id)) {
+                              // Has subfolders - expand to show them
+                              setExpandedMoveFolder(folder.id)
+                            } else {
+                              // No subfolders - move directly
+                              handleMove(e, deck.id, folder.id)
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                          </svg>
+                          <span className="truncate flex-1">{folder.name}</span>
+                          {hasChildren(folder.id) && (
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+
+                    {/* Empty state */}
+                    {expandedMoveFolder === null && folders.length === 0 && deck.folderId === null && (
+                      <div className="px-3 py-2 text-sm text-gray-400 italic">
+                        No folders yet
+                      </div>
+                    )}
+                    {expandedMoveFolder !== null && getChildFolders(expandedMoveFolder).filter(f => f.id !== deck.folderId).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-gray-400 italic">
+                        No subfolders
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={(e) => handleDelete(e, deck.id, deck.name)}
                 disabled={deletingId === deck.id}

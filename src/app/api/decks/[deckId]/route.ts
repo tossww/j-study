@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, decks } from '@/db'
+import { db, decks, folders } from '@/db'
 import { eq } from 'drizzle-orm'
 
 // GET /api/decks/[deckId] - Get a single deck
@@ -57,11 +57,20 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, description } = body
+    const { name, description, folderId } = body
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    // At least one field must be provided
+    if (name === undefined && description === undefined && folderId === undefined) {
       return NextResponse.json(
-        { error: 'Name is required' },
+        { error: 'At least one field is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate name if provided
+    if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0)) {
+      return NextResponse.json(
+        { error: 'Name cannot be empty' },
         { status: 400 }
       )
     }
@@ -79,14 +88,33 @@ export async function PATCH(
       )
     }
 
+    // Validate folderId if provided (and not null)
+    if (folderId !== undefined && folderId !== null) {
+      const [folder] = await db
+        .select()
+        .from(folders)
+        .where(eq(folders.id, folderId))
+
+      if (!folder) {
+        return NextResponse.json(
+          { error: 'Folder not found' },
+          { status: 404 }
+        )
+      }
+    }
+
+    // Build update object
+    const updates: { name?: string; description?: string | null; folderId?: number | null; updatedAt: Date } = {
+      updatedAt: new Date(),
+    }
+    if (name !== undefined) updates.name = name.trim()
+    if (description !== undefined) updates.description = description?.trim() || null
+    if (folderId !== undefined) updates.folderId = folderId
+
     // Update deck
     const [updatedDeck] = await db
       .update(decks)
-      .set({
-        name: name.trim(),
-        description: description?.trim() || null,
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(decks.id, deckId))
       .returning()
 

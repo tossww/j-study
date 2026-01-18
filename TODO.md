@@ -25,7 +25,7 @@
 - **M9** [Core, UI] Quiz Modes → `DONE`
 - **M10** [UI] SRS Visibility & Practice Mode → `DONE`
 - **M11** [Core, UI] Reference Sheets → `READY`
-- **M12** [Core, UI] Nested Folders → `READY`
+- **M12** [Core, UI] Nested Folders → `ACTIVE`
 - **M13** [Core, UI] User Accounts → `READY`
 
 *Status: `READY` | `ACTIVE` | `BLOCKED:M#` | `DONE`*
