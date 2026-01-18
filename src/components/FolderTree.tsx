@@ -29,6 +29,7 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
   const [editName, setEditName] = useState('')
   const [creatingIn, setCreatingIn] = useState<number | null | 'root'>(null)
   const [newFolderName, setNewFolderName] = useState('')
+  const [dragOverFolderId, setDragOverFolderId] = useState<number | null | 'root'>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -193,6 +194,53 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
     }
   }
 
+  // Drag and drop handlers for moving decks into folders
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDragEnter(e: React.DragEvent, folderId: number | null) {
+    e.preventDefault()
+    setDragOverFolderId(folderId === null ? 'root' : folderId)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    // Only clear if we're leaving the actual element (not entering a child)
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setDragOverFolderId(null)
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent, targetFolderId: number | null) {
+    e.preventDefault()
+    setDragOverFolderId(null)
+
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'))
+      if (data.type !== 'deck') return
+
+      const res = await fetch(`/api/decks/${data.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: targetFolderId }),
+      })
+
+      if (res.ok) {
+        // Notify DeckList to remove the deck from view
+        window.dispatchEvent(new CustomEvent('deck-moved', {
+          detail: { deckId: data.id, targetFolderId }
+        }))
+        // Refresh to show updated state
+        router.refresh()
+        fetchFolders()
+      }
+    } catch (error) {
+      console.error('Error moving deck:', error)
+    }
+  }
+
   function startEdit(folder: Folder, e: React.MouseEvent) {
     e.stopPropagation()
     setEditingId(folder.id)
@@ -223,9 +271,13 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
         <button
           key={node.id}
           onClick={() => selectFolder(node.id)}
+          onDragOver={handleDragOver}
+          onDragEnter={(e) => handleDragEnter(e, node.id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, node.id)}
           className={`w-full flex justify-center p-2 rounded-lg transition-colors ${
             isSelected ? 'bg-primary-100 text-primary-700' : 'text-gray-500 hover:bg-gray-100'
-          }`}
+          } ${dragOverFolderId === node.id ? 'bg-amber-100 ring-2 ring-amber-400' : ''}`}
           title={node.name}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,9 +292,13 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
         <div
           className={`group flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-colors ${
             isSelected ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100 text-gray-700'
-          }`}
+          } ${dragOverFolderId === node.id ? 'bg-amber-100 ring-2 ring-amber-400 ring-inset' : ''}`}
           style={{ paddingLeft: `${8 + level * 16}px` }}
           onClick={() => selectFolder(node.id)}
+          onDragOver={handleDragOver}
+          onDragEnter={(e) => handleDragEnter(e, node.id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, node.id)}
         >
           {/* Expand/collapse button */}
           <button
@@ -389,13 +445,17 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
 
   return (
     <div className="py-2">
-      {/* All Decks option */}
+      {/* All Decks option - accepts drops to move to root */}
       {!collapsed && (
         <button
           onClick={() => selectFolder(null)}
+          onDragOver={handleDragOver}
+          onDragEnter={(e) => handleDragEnter(e, null)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, null)}
           className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-left ${
             !currentFolderId ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100 text-gray-700'
-          }`}
+          } ${dragOverFolderId === 'root' ? 'bg-amber-100 ring-2 ring-amber-400 ring-inset' : ''}`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />

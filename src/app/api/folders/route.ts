@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, folders, decks } from '@/db'
-import { desc, eq, sql, isNull } from 'drizzle-orm'
+import { desc, eq, sql, isNull, or } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // GET /api/folders - Get all folders with deck counts
 export async function GET() {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const allFolders = await db
       .select({
         id: folders.id,
@@ -18,6 +24,7 @@ export async function GET() {
         )`,
       })
       .from(folders)
+      .where(or(eq(folders.userId, session.user.id), isNull(folders.userId)))
       .orderBy(folders.name)
 
     return NextResponse.json(allFolders)
@@ -33,6 +40,11 @@ export async function GET() {
 // POST /api/folders - Create a new folder
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { name, parentId } = body
 
@@ -76,6 +88,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         parentId: parentId ?? null,
         depth,
+        userId: session.user.id,
       })
       .returning()
 

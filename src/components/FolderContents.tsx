@@ -26,6 +26,9 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
   const [newFolderName, setNewFolderName] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameName, setRenameName] = useState('')
+  const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null)
+  const [dragOverMoveOut, setDragOverMoveOut] = useState<'parent' | 'root' | null>(null)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
   useEffect(() => {
     async function fetchFolderData() {
@@ -125,6 +128,80 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
     }
   }
 
+  // Drag and drop handlers
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  function handleDragEnter(e: React.DragEvent, targetFolderId: number) {
+    e.preventDefault()
+    setDragOverFolderId(targetFolderId)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setDragOverFolderId(null)
+    }
+  }
+
+  async function handleDrop(e: React.DragEvent, targetFolderId: number | null) {
+    e.preventDefault()
+    setDragOverFolderId(null)
+    setDragOverMoveOut(null)
+    setIsDraggingOver(false)
+
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/json'))
+      if (data.type !== 'deck') return
+
+      const res = await fetch(`/api/decks/${data.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: targetFolderId }),
+      })
+
+      if (res.ok) {
+        // Notify DeckList to remove the deck from view
+        window.dispatchEvent(new CustomEvent('deck-moved', {
+          detail: { deckId: data.id, targetFolderId }
+        }))
+        router.refresh()
+      }
+    } catch (error) {
+      console.error('Error moving deck:', error)
+    }
+  }
+
+  // Track when any drag enters/leaves the folder contents area
+  function handleContainerDragEnter(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDraggingOver(true)
+  }
+
+  function handleContainerDragLeave(e: React.DragEvent) {
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setIsDraggingOver(false)
+      setDragOverMoveOut(null)
+    }
+  }
+
+  function handleMoveOutDragEnter(e: React.DragEvent, target: 'parent' | 'root') {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverMoveOut(target)
+  }
+
+  function handleMoveOutDragLeave(e: React.DragEvent) {
+    e.stopPropagation()
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+      setDragOverMoveOut(null)
+    }
+  }
+
   const canCreateSubfolder = folder && folder.depth < 2
 
   if (loading) {
@@ -140,7 +217,54 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
   }
 
   return (
-    <div className="mb-6">
+    <div
+      className="mb-6"
+      onDragEnter={handleContainerDragEnter}
+      onDragLeave={handleContainerDragLeave}
+      onDragOver={handleDragOver}
+    >
+      {/* Move out drop zones - appear when dragging */}
+      {isDraggingOver && (
+        <div className="flex gap-2 mb-4">
+          {/* Move to parent folder */}
+          {folder?.parentId !== null && breadcrumbs.length > 0 && (
+            <div
+              onDragOver={handleDragOver}
+              onDragEnter={(e) => handleMoveOutDragEnter(e, 'parent')}
+              onDragLeave={handleMoveOutDragLeave}
+              onDrop={(e) => handleDrop(e, folder?.parentId ?? null)}
+              className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed transition-colors ${
+                dragOverMoveOut === 'parent'
+                  ? 'border-amber-400 bg-amber-50 text-amber-700'
+                  : 'border-gray-300 text-gray-500'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+              <span className="text-sm font-medium">Move to {breadcrumbs[breadcrumbs.length - 1]?.name || 'parent'}</span>
+            </div>
+          )}
+          {/* Move to root (All Decks) */}
+          <div
+            onDragOver={handleDragOver}
+            onDragEnter={(e) => handleMoveOutDragEnter(e, 'root')}
+            onDragLeave={handleMoveOutDragLeave}
+            onDrop={(e) => handleDrop(e, null)}
+            className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed transition-colors ${
+              dragOverMoveOut === 'root'
+                ? 'border-primary-400 bg-primary-50 text-primary-700'
+                : 'border-gray-300 text-gray-500'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="text-sm font-medium">Move to All Decks</span>
+          </div>
+        </div>
+      )}
+
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-sm mb-4">
         <Link
@@ -244,7 +368,16 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
               <Link
                 key={subfolder.id}
                 href={`/?folderId=${subfolder.id}`}
-                className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:border-primary-200 hover:shadow-soft transition-all"
+                onDragOver={handleDragOver}
+                onDragEnter={(e) => handleDragEnter(e, subfolder.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  handleDrop(e, subfolder.id)
+                }}
+                className={`flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:border-primary-200 hover:shadow-soft transition-all ${
+                  dragOverFolderId === subfolder.id ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-400' : ''
+                }`}
               >
                 <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
                   <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24">

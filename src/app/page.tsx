@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import DeckList from '@/components/DeckList'
 import StatsBar from '@/components/StatsBar'
 import FolderContents from '@/components/FolderContents'
+import TroubleCards from '@/components/TroubleCards'
 
 interface HomeProps {
   searchParams: Promise<{ folderId?: string }>
@@ -63,6 +64,13 @@ export default async function Home({ searchParams }: HomeProps) {
                 </div>
               </div>
             </Link>
+          </div>
+
+          {/* Trouble Cards - cards you miss most */}
+          <div className="mt-8">
+            <Suspense fallback={<div className="h-48 bg-white rounded-2xl animate-pulse" />}>
+              <TroubleCards />
+            </Suspense>
           </div>
         </>
       )}

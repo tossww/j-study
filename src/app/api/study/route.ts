@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, flashcards } from '@/db'
-import { eq } from 'drizzle-orm'
+import { db, flashcards, decks } from '@/db'
+import { eq, and, or, isNull } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // POST /api/study - Update flashcard after study
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { cardId, correct } = body
 
@@ -15,11 +21,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get current card state
-    const [card] = await db
-      .select()
+    // Get current card state (verify it belongs to user's deck)
+    const cardResult = await db
+      .select({
+        id: flashcards.id,
+        easeFactor: flashcards.easeFactor,
+        interval: flashcards.interval,
+        repetitions: flashcards.repetitions,
+        timesCorrect: flashcards.timesCorrect,
+        timesIncorrect: flashcards.timesIncorrect,
+      })
       .from(flashcards)
-      .where(eq(flashcards.id, cardId))
+      .innerJoin(decks, eq(flashcards.deckId, decks.id))
+      .where(and(
+        eq(flashcards.id, cardId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
+
+    const card = cardResult[0]
 
     if (!card) {
       return NextResponse.json(

@@ -1,25 +1,31 @@
 import { NextResponse } from 'next/server'
-import { db, flashcards } from '@/db'
-import { sql } from 'drizzle-orm'
+import { db, flashcards, decks } from '@/db'
+import { sql, eq, or, isNull } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // GET /api/stats - Get study statistics including streak
 export async function GET() {
   try {
-    // Get all study days (days when cards were reviewed)
-    // Based on flashcard updatedAt when timesCorrect or timesIncorrect > 0
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get all study days (days when cards were reviewed) for user's decks
     const studyDays = await db
       .select({
         studyDate: sql<string>`DATE(${flashcards.updatedAt})`.as('study_date'),
       })
       .from(flashcards)
-      .where(sql`${flashcards.timesCorrect} + ${flashcards.timesIncorrect} > 0`)
+      .innerJoin(decks, eq(flashcards.deckId, decks.id))
+      .where(sql`${flashcards.timesCorrect} + ${flashcards.timesIncorrect} > 0 AND (${decks.userId} = ${session.user.id} OR ${decks.userId} IS NULL)`)
       .groupBy(sql`DATE(${flashcards.updatedAt})`)
       .orderBy(sql`DATE(${flashcards.updatedAt}) DESC`)
 
     // Calculate streak
     const streak = calculateStreak(studyDays.map(d => d.studyDate))
 
-    // Get total stats
+    // Get total stats (for user's decks)
     const [totals] = await db
       .select({
         totalCards: sql<number>`count(*)::int`,
@@ -28,6 +34,8 @@ export async function GET() {
         cardsStudied: sql<number>`count(*) filter (where ${flashcards.timesCorrect} + ${flashcards.timesIncorrect} > 0)::int`,
       })
       .from(flashcards)
+      .innerJoin(decks, eq(flashcards.deckId, decks.id))
+      .where(or(eq(decks.userId, session.user.id), isNull(decks.userId)))
 
     const totalAttempts = totals.totalCorrect + totals.totalIncorrect
     const overallAccuracy = totalAttempts > 0

@@ -52,6 +52,8 @@ function QuizSessionContent() {
     }
 
     async function fetchQuestions() {
+      if (!deckId) return
+
       try {
         setHasFetched(true)
         const res = await fetch('/api/quiz/generate', {

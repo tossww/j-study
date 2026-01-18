@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, Suspense, useEffect } from 'react'
+import { useState, Suspense } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import FolderTree from './FolderTree'
 
 const navItems = [
@@ -69,6 +70,11 @@ interface SidebarProps {
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const [foldersExpanded, setFoldersExpanded] = useState(true)
+  const { data: session } = useSession()
+
+  const handleLogout = () => {
+    signOut({ callbackUrl: '/login' })
+  }
 
   return (
     <aside
@@ -88,7 +94,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         )}
       </div>
 
-      {/* User placeholder */}
+      {/* User info */}
       <div className={`px-4 py-3 mx-3 mb-2 rounded-xl bg-white/50 ${collapsed ? 'mx-2' : ''}`}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-accent-lavender flex items-center justify-center flex-shrink-0">
@@ -97,12 +103,25 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             </svg>
           </div>
           {!collapsed && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium text-gray-800 truncate">Guest User</p>
-              <p className="text-xs text-gray-500">Sign in soon</p>
+            <div className="overflow-hidden flex-1">
+              <p className="text-sm font-medium text-gray-800 truncate">
+                {session?.user?.name || session?.user?.email?.split('@')[0] || 'User'}
+              </p>
+              <p className="text-xs text-gray-500 truncate">{session?.user?.email}</p>
             </div>
           )}
         </div>
+        {!collapsed && (
+          <button
+            onClick={handleLogout}
+            className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sign out
+          </button>
+        )}
       </div>
 
       {/* Nav items */}

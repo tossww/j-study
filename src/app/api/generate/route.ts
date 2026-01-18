@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, decks, flashcards } from '@/db'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, and, or, isNull } from 'drizzle-orm'
 import { smartCardOperations, generateFromInstructions, ExistingCardSummary, ExistingCard } from '@/lib/anthropic'
+import { auth } from '@/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { deckId, deckName, instructions, customPrompt } = body
 
@@ -14,7 +20,10 @@ export async function POST(request: NextRequest) {
 
     // For existing decks, use smart operations
     if (deckId) {
-      const [deck] = await db.select().from(decks).where(eq(decks.id, deckId))
+      const [deck] = await db.select().from(decks).where(and(
+        eq(decks.id, deckId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
       if (!deck) {
         return NextResponse.json({ error: 'Deck not found' }, { status: 404 })
       }
@@ -109,6 +118,7 @@ export async function POST(request: NextRequest) {
     const [newDeck] = await db.insert(decks).values({
       name: finalName,
       description: `Generated from: "${instructions.trim().slice(0, 100)}${instructions.length > 100 ? '...' : ''}"`,
+      userId: session.user.id,
     }).returning()
 
     // Insert flashcards

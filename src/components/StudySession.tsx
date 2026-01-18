@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Flashcard from './Flashcard'
+import ReferencePanel, { ReferenceFile } from './ReferencePanel'
 import type { Flashcard as FlashcardType } from '@/db/schema'
 
 interface StudySessionProps {
   deckId: number
   deckName: string
   weakOnly?: boolean
+  troubleOnly?: boolean
 }
 
 // Check if a card is "weak" (New or Learning)
@@ -18,7 +20,14 @@ function isWeakCard(card: FlashcardType): boolean {
   return repetitions === 0 || repetitions <= 2 || interval <= 3
 }
 
-export default function StudySession({ deckId, deckName, weakOnly = false }: StudySessionProps) {
+// Check if a card is a "trouble" card (high error rate)
+function isTroubleCard(card: FlashcardType): boolean {
+  const total = card.timesCorrect + card.timesIncorrect
+  // Must have at least one error to be a trouble card
+  return card.timesIncorrect > 0 && total > 0
+}
+
+export default function StudySession({ deckId, deckName, weakOnly = false, troubleOnly = false }: StudySessionProps) {
   const [cards, setCards] = useState<FlashcardType[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -32,14 +41,37 @@ export default function StudySession({ deckId, deckName, weakOnly = false }: Stu
   const [editBack, setEditBack] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // Reference panel state
+  const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
+  const [showReferencePanel, setShowReferencePanel] = useState(false)
+
   useEffect(() => {
     async function fetchCards() {
       try {
         const response = await fetch(`/api/flashcards/${deckId}`)
         if (!response.ok) throw new Error('Failed to fetch cards')
         const data = await response.json()
-        // Filter for weak cards if weakOnly mode
-        const filteredCards = weakOnly ? data.filter(isWeakCard) : data
+
+        let filteredCards = data
+
+        // Filter for weak cards (low SRS level)
+        if (weakOnly) {
+          filteredCards = data.filter(isWeakCard)
+        }
+
+        // Filter for trouble cards (high error rate), sorted by error rate
+        if (troubleOnly) {
+          filteredCards = data
+            .filter(isTroubleCard)
+            .sort((a: FlashcardType, b: FlashcardType) => {
+              const aTotal = a.timesCorrect + a.timesIncorrect
+              const bTotal = b.timesCorrect + b.timesIncorrect
+              const aRate = aTotal > 0 ? a.timesIncorrect / aTotal : 0
+              const bRate = bTotal > 0 ? b.timesIncorrect / bTotal : 0
+              return bRate - aRate // Higher error rate first
+            })
+        }
+
         setCards(filteredCards)
       } catch {
         setError('Failed to load flashcards')
@@ -49,7 +81,24 @@ export default function StudySession({ deckId, deckName, weakOnly = false }: Stu
     }
 
     fetchCards()
-  }, [deckId, weakOnly])
+  }, [deckId, weakOnly, troubleOnly])
+
+  // Fetch reference files for this deck
+  useEffect(() => {
+    async function fetchReferenceFiles() {
+      try {
+        const response = await fetch(`/api/decks/${deckId}/files`)
+        if (response.ok) {
+          const files = await response.json()
+          setReferenceFiles(files)
+        }
+      } catch (error) {
+        console.error('Failed to fetch reference files:', error)
+      }
+    }
+
+    fetchReferenceFiles()
+  }, [deckId])
 
   const handleResult = async (correct: boolean) => {
     const card = cards[currentIndex]
@@ -134,12 +183,16 @@ export default function StudySession({ deckId, deckName, weakOnly = false }: Stu
   }
 
   if (cards.length === 0) {
+    const getMessage = () => {
+      if (troubleOnly) return 'No trouble cards! You haven\'t missed any cards yet.'
+      if (weakOnly) return 'No weak cards to practice! All cards are well-learned.'
+      return 'No flashcards in this deck'
+    }
+
     return (
       <div className="text-center p-8">
-        <p className="text-gray-600">
-          {weakOnly ? 'No weak cards to practice! All cards are well-learned.' : 'No flashcards in this deck'}
-        </p>
-        {weakOnly && (
+        <p className="text-gray-600">{getMessage()}</p>
+        {(weakOnly || troubleOnly) && (
           <Link
             href={`/study?deck=${deckId}`}
             className="inline-block mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
@@ -214,8 +267,31 @@ export default function StudySession({ deckId, deckName, weakOnly = false }: Stu
                 Weak Cards
               </span>
             )}
+            {troubleOnly && (
+              <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full font-medium">
+                Trouble Cards
+              </span>
+            )}
           </div>
-          <span>{currentIndex + 1} / {cards.length}</span>
+          <div className="flex items-center gap-2">
+            {referenceFiles.length > 0 && (
+              <button
+                onClick={() => setShowReferencePanel(!showReferencePanel)}
+                className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                  showReferencePanel
+                    ? 'bg-primary-100 text-primary-700'
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+                title="View reference materials"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Ref</span>
+              </button>
+            )}
+            <span>{currentIndex + 1} / {cards.length}</span>
+          </div>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
@@ -297,6 +373,13 @@ export default function StudySession({ deckId, deckName, weakOnly = false }: Stu
           <span className="text-gray-500"> incorrect</span>
         </div>
       </div>
+
+      {/* Reference Panel */}
+      <ReferencePanel
+        files={referenceFiles}
+        isOpen={showReferencePanel}
+        onClose={() => setShowReferencePanel(false)}
+      />
     </div>
   )
 }

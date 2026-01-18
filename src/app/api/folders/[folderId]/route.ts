@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, folders, decks } from '@/db'
-import { eq, sql } from 'drizzle-orm'
+import { eq, sql, and, or, isNull } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // GET /api/folders/[folderId] - Get folder with contents
 export async function GET(
@@ -8,6 +9,11 @@ export async function GET(
   { params }: { params: Promise<{ folderId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { folderId: folderIdStr } = await params
     const folderId = parseInt(folderIdStr)
 
@@ -21,7 +27,10 @@ export async function GET(
     const [folder] = await db
       .select()
       .from(folders)
-      .where(eq(folders.id, folderId))
+      .where(and(
+        eq(folders.id, folderId),
+        or(eq(folders.userId, session.user.id), isNull(folders.userId))
+      ))
 
     if (!folder) {
       return NextResponse.json(
@@ -63,6 +72,11 @@ export async function PATCH(
   { params }: { params: Promise<{ folderId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { folderId: folderIdStr } = await params
     const folderId = parseInt(folderIdStr)
 
@@ -76,11 +90,14 @@ export async function PATCH(
     const body = await request.json()
     const { name, parentId } = body
 
-    // Check folder exists
+    // Check folder exists and belongs to user
     const [existingFolder] = await db
       .select()
       .from(folders)
-      .where(eq(folders.id, folderId))
+      .where(and(
+        eq(folders.id, folderId),
+        or(eq(folders.userId, session.user.id), isNull(folders.userId))
+      ))
 
     if (!existingFolder) {
       return NextResponse.json(
@@ -183,6 +200,11 @@ export async function DELETE(
   { params }: { params: Promise<{ folderId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { folderId: folderIdStr } = await params
     const folderId = parseInt(folderIdStr)
 
@@ -196,7 +218,10 @@ export async function DELETE(
     const [folder] = await db
       .select()
       .from(folders)
-      .where(eq(folders.id, folderId))
+      .where(and(
+        eq(folders.id, folderId),
+        or(eq(folders.userId, session.user.id), isNull(folders.userId))
+      ))
 
     if (!folder) {
       return NextResponse.json(

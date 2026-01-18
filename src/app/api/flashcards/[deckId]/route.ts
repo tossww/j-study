@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, flashcards, decks } from '@/db'
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, and, or, isNull } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // GET /api/flashcards/[deckId] - Get all flashcards for a deck
 export async function GET(
@@ -8,6 +9,11 @@ export async function GET(
   { params }: { params: Promise<{ deckId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { deckId: deckIdStr } = await params
     const deckId = parseInt(deckIdStr)
 
@@ -15,6 +21,22 @@ export async function GET(
       return NextResponse.json(
         { error: 'Invalid deck ID' },
         { status: 400 }
+      )
+    }
+
+    // Verify deck belongs to user
+    const [deck] = await db
+      .select()
+      .from(decks)
+      .where(and(
+        eq(decks.id, deckId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
+
+    if (!deck) {
+      return NextResponse.json(
+        { error: 'Deck not found' },
+        { status: 404 }
       )
     }
 
@@ -40,6 +62,11 @@ export async function POST(
   { params }: { params: Promise<{ deckId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { deckId: deckIdStr } = await params
     const deckId = parseInt(deckIdStr)
 
@@ -50,11 +77,14 @@ export async function POST(
       )
     }
 
-    // Check if deck exists
+    // Check if deck exists and belongs to user
     const [deck] = await db
       .select()
       .from(decks)
-      .where(eq(decks.id, deckId))
+      .where(and(
+        eq(decks.id, deckId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
 
     if (!deck) {
       return NextResponse.json(

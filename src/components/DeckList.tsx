@@ -54,6 +54,7 @@ export default function DeckList({ folderId }: DeckListProps = {}) {
   const [moveMenuOpen, setMoveMenuOpen] = useState<number | null>(null)
   const [movingId, setMovingId] = useState<number | null>(null)
   const [expandedMoveFolder, setExpandedMoveFolder] = useState<number | null>(null)
+  const [draggingId, setDraggingId] = useState<number | null>(null)
   const moveMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -160,6 +161,35 @@ export default function DeckList({ folderId }: DeckListProps = {}) {
   // Check if folder has children
   const hasChildren = (folderId: number) => folders.some(f => f.parentId === folderId)
 
+  // Drag handlers for deck cards
+  const handleDragStart = (e: React.DragEvent, deck: Deck) => {
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'deck',
+      id: deck.id,
+      name: deck.name,
+    }))
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggingId(deck.id)
+  }
+
+  const handleDragEnd = () => {
+    setDraggingId(null)
+  }
+
+  // Listen for deck-moved events from FolderTree/FolderContents
+  useEffect(() => {
+    function handleDeckMoved(e: CustomEvent<{ deckId: number; targetFolderId: number | null }>) {
+      const { deckId, targetFolderId } = e.detail
+      // Remove deck from list if it was moved to a different folder
+      if (folderId !== targetFolderId) {
+        setDecks(prev => prev.filter(d => d.id !== deckId))
+      }
+    }
+
+    window.addEventListener('deck-moved', handleDeckMoved as EventListener)
+    return () => window.removeEventListener('deck-moved', handleDeckMoved as EventListener)
+  }, [folderId])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
@@ -204,8 +234,13 @@ export default function DeckList({ folderId }: DeckListProps = {}) {
       {decks.map((deck) => (
         <div
           key={deck.id}
+          draggable
+          onDragStart={(e) => handleDragStart(e, deck)}
+          onDragEnd={handleDragEnd}
           onClick={() => router.push(`/study?deck=${deck.id}`)}
-          className="group relative p-4 bg-white rounded-2xl shadow-soft border border-gray-50 hover:shadow-soft-lg hover:border-primary-100 transition-all cursor-pointer"
+          className={`group relative p-4 bg-white rounded-2xl shadow-soft border border-gray-50 hover:shadow-soft-lg hover:border-primary-100 transition-all cursor-pointer ${
+            draggingId === deck.id ? 'opacity-50 scale-95' : ''
+          }`}
         >
           <div className="flex justify-between items-start">
             <div className="flex items-start gap-4 flex-1 pr-4">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import Header from './Header'
 
@@ -8,9 +9,16 @@ interface AppShellProps {
   children: React.ReactNode
 }
 
+// Auth pages that should not show the sidebar/header
+const authPages = ['/login', '/register']
+
 export default function AppShell({ children }: AppShellProps) {
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Check if current page is an auth page
+  const isAuthPage = authPages.includes(pathname)
 
   // Load saved preference from localStorage
   useEffect(() => {
@@ -39,6 +47,11 @@ export default function AppShell({ children }: AppShellProps) {
 
   const handleMobileToggle = () => {
     setMobileOpen(!mobileOpen)
+  }
+
+  // For auth pages, render without shell
+  if (isAuthPage) {
+    return <>{children}</>
   }
 
   return (

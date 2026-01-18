@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { flashcards } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { flashcards, decks } from '@/db/schema'
+import { eq, and, or, isNull } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 export type QuizMode = 'multiple-choice' | 'fill-blank' | 'typed'
 
@@ -118,10 +119,28 @@ function createFillInBlank(answer: string): { blankedAnswer: string; blankWord: 
 
 export async function POST(request: Request) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { deckId, modes, count } = await request.json()
 
     if (!deckId || !modes || !Array.isArray(modes) || modes.length === 0) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+    }
+
+    // Verify deck belongs to user
+    const [deck] = await db
+      .select()
+      .from(decks)
+      .where(and(
+        eq(decks.id, deckId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
+
+    if (!deck) {
+      return NextResponse.json({ error: 'Deck not found' }, { status: 404 })
     }
 
     // Fetch flashcards for the deck

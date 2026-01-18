@@ -1,15 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, decks, flashcards } from '@/db'
-import { desc, eq, sql, isNull } from 'drizzle-orm'
+import { desc, eq, sql, isNull, and, or } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // GET /api/decks - Get all decks with card counts and accuracy stats
 // Query params: ?folderId=X (filter by folder), ?folderId=null (unfiled only)
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const folderIdParam = searchParams.get('folderId')
 
-    let query = db
+    // Build where conditions
+    const userCondition = or(
+      eq(decks.userId, session.user.id),
+      isNull(decks.userId) // Include orphaned decks for backward compatibility
+    )
+
+    let whereCondition = userCondition
+
+    // Filter by folder if specified
+    if (folderIdParam !== null) {
+      if (folderIdParam === 'null') {
+        // Get unfiled decks only
+        whereCondition = and(userCondition, isNull(decks.folderId))!
+      } else {
+        const folderId = parseInt(folderIdParam)
+        if (!isNaN(folderId)) {
+          whereCondition = and(userCondition, eq(decks.folderId, folderId))!
+        }
+      }
+    }
+
+    const allDecks = await db
       .select({
         id: decks.id,
         name: decks.name,
@@ -24,24 +51,9 @@ export async function GET(request: NextRequest) {
       })
       .from(decks)
       .leftJoin(flashcards, eq(decks.id, flashcards.deckId))
+      .where(whereCondition)
       .groupBy(decks.id)
       .orderBy(desc(decks.updatedAt))
-      .$dynamic()
-
-    // Filter by folder if specified
-    if (folderIdParam !== null) {
-      if (folderIdParam === 'null') {
-        // Get unfiled decks only
-        query = query.where(isNull(decks.folderId))
-      } else {
-        const folderId = parseInt(folderIdParam)
-        if (!isNaN(folderId)) {
-          query = query.where(eq(decks.folderId, folderId))
-        }
-      }
-    }
-
-    const allDecks = await query
 
     // Calculate accuracy percentage for each deck
     const decksWithAccuracy = allDecks.map(deck => {

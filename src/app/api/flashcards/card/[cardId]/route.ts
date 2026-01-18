@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, flashcards, decks } from '@/db'
-import { eq } from 'drizzle-orm'
+import { eq, and, or, isNull } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // PATCH /api/flashcards/card/[cardId] - Update a flashcard
 export async function PATCH(
@@ -8,6 +9,11 @@ export async function PATCH(
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { cardId: cardIdStr } = await params
     const cardId = parseInt(cardIdStr)
 
@@ -18,11 +24,20 @@ export async function PATCH(
       )
     }
 
-    // Check if card exists
+    // Check if card exists and belongs to user's deck
     const [existingCard] = await db
-      .select()
+      .select({
+        id: flashcards.id,
+        deckId: flashcards.deckId,
+        front: flashcards.front,
+        back: flashcards.back,
+      })
       .from(flashcards)
-      .where(eq(flashcards.id, cardId))
+      .innerJoin(decks, eq(flashcards.deckId, decks.id))
+      .where(and(
+        eq(flashcards.id, cardId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
 
     if (!existingCard) {
       return NextResponse.json(
@@ -81,6 +96,11 @@ export async function DELETE(
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { cardId: cardIdStr } = await params
     const cardId = parseInt(cardIdStr)
 
@@ -91,11 +111,18 @@ export async function DELETE(
       )
     }
 
-    // Check if card exists
+    // Check if card exists and belongs to user's deck
     const [existingCard] = await db
-      .select()
+      .select({
+        id: flashcards.id,
+        deckId: flashcards.deckId,
+      })
       .from(flashcards)
-      .where(eq(flashcards.id, cardId))
+      .innerJoin(decks, eq(flashcards.deckId, decks.id))
+      .where(and(
+        eq(flashcards.id, cardId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
 
     if (!existingCard) {
       return NextResponse.json(

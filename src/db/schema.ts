@@ -1,4 +1,56 @@
-import { pgTable, serial, text, timestamp, integer, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, serial, text, timestamp, integer, boolean, primaryKey } from 'drizzle-orm/pg-core'
+
+// ============================================
+// AUTH TABLES (Auth.js / NextAuth)
+// ============================================
+
+// Users table
+export const users = pgTable('users', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name'),
+  email: text('email').unique().notNull(),
+  password: text('password').notNull(), // bcrypt hashed
+  emailVerified: timestamp('email_verified', { mode: 'date' }),
+  image: text('image'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// Sessions table
+export const sessions = pgTable('sessions', {
+  sessionToken: text('session_token').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expires: timestamp('expires', { mode: 'date' }).notNull(),
+})
+
+// Accounts table (for OAuth providers - future use)
+export const accounts = pgTable('accounts', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(),
+  provider: text('provider').notNull(),
+  providerAccountId: text('provider_account_id').notNull(),
+  refresh_token: text('refresh_token'),
+  access_token: text('access_token'),
+  expires_at: integer('expires_at'),
+  token_type: text('token_type'),
+  scope: text('scope'),
+  id_token: text('id_token'),
+  session_state: text('session_state'),
+}, (account) => ({
+  compoundKey: primaryKey({ columns: [account.provider, account.providerAccountId] }),
+}))
+
+// Verification tokens (for email verification - future use)
+export const verificationTokens = pgTable('verification_tokens', {
+  identifier: text('identifier').notNull(),
+  token: text('token').notNull(),
+  expires: timestamp('expires', { mode: 'date' }).notNull(),
+}, (vt) => ({
+  compoundKey: primaryKey({ columns: [vt.identifier, vt.token] }),
+}))
+
+// ============================================
+// APPLICATION TABLES
+// ============================================
 
 // Folders table - organize decks into hierarchy (max 3 levels)
 export const folders = pgTable('folders', {
@@ -6,6 +58,7 @@ export const folders = pgTable('folders', {
   name: text('name').notNull(),
   parentId: integer('parent_id'),  // Self-reference, null for root folders
   depth: integer('depth').default(0).notNull(), // 0, 1, or 2 (enforced in API)
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }), // nullable for migration
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -18,6 +71,7 @@ export const decks = pgTable('decks', {
   sourceFileName: text('source_file_name'),
   analysis: text('analysis'), // JSON string with AI feedback
   folderId: integer('folder_id').references(() => folders.id, { onDelete: 'set null' }),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }), // nullable for migration
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -62,7 +116,22 @@ export const studySessions = pgTable('study_sessions', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+// Reference files table - uploaded files for studying
+export const referenceFiles = pgTable('reference_files', {
+  id: serial('id').primaryKey(),
+  deckId: integer('deck_id').references(() => decks.id, { onDelete: 'cascade' }).notNull(),
+  fileName: text('file_name').notNull(),
+  blobUrl: text('blob_url').notNull(),
+  fileType: text('file_type').notNull(), // 'pdf' | 'txt' | 'md'
+  fileSize: integer('file_size'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // Types for TypeScript
+export type User = typeof users.$inferSelect
+export type NewUser = typeof users.$inferInsert
+export type Session = typeof sessions.$inferSelect
+export type Account = typeof accounts.$inferSelect
 export type Folder = typeof folders.$inferSelect
 export type NewFolder = typeof folders.$inferInsert
 export type Deck = typeof decks.$inferSelect
@@ -71,3 +140,5 @@ export type Flashcard = typeof flashcards.$inferSelect
 export type NewFlashcard = typeof flashcards.$inferInsert
 export type StudySession = typeof studySessions.$inferSelect
 export type NewStudySession = typeof studySessions.$inferInsert
+export type ReferenceFile = typeof referenceFiles.$inferSelect
+export type NewReferenceFile = typeof referenceFiles.$inferInsert

@@ -9,6 +9,18 @@ interface AnthropicResponse {
   content: Array<{ type: string; text?: string }>
 }
 
+// Content block types for messages
+type TextContent = { type: 'text'; text: string }
+type ImageContent = {
+  type: 'image'
+  source: {
+    type: 'base64'
+    media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+    data: string
+  }
+}
+type ContentBlock = TextContent | ImageContent
+
 async function callAnthropic(prompt: string, maxTokens: number = 4096): Promise<string> {
   const response = await fetch(API_URL, {
     method: 'POST',
@@ -21,6 +33,59 @@ async function callAnthropic(prompt: string, maxTokens: number = 4096): Promise<
       model: MODEL,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Anthropic API error: ${response.status} - ${error}`)
+  }
+
+  const data: AnthropicResponse = await response.json()
+  const textContent = data.content.find(block => block.type === 'text')
+
+  if (!textContent?.text) {
+    throw new Error('No text content in response')
+  }
+
+  return textContent.text
+}
+
+// Call Anthropic with image support (vision)
+async function callAnthropicWithImage(
+  prompt: string,
+  imageBuffer: Buffer,
+  mimeType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+  maxTokens: number = 4096
+): Promise<string> {
+  const base64Image = imageBuffer.toString('base64')
+
+  const content: ContentBlock[] = [
+    {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: mimeType,
+        data: base64Image,
+      },
+    },
+    {
+      type: 'text',
+      text: prompt,
+    },
+  ]
+
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content }],
     }),
   })
 
@@ -166,6 +231,80 @@ Return your response as valid JSON with this exact structure:
 Return ONLY the JSON object, no other text.`
 
   const responseText = await callAnthropic(prompt)
+
+  try {
+    return parseJsonResponse(responseText) as AnalysisResult
+  } catch (e) {
+    console.error('Failed to parse AI response:', responseText.slice(0, 500))
+    throw new Error('Failed to parse analysis from AI response')
+  }
+}
+
+// Image-specific type for mime types
+export type ImageMimeType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+
+export async function analyzeImageAndGenerateFlashcards(
+  imageBuffer: Buffer,
+  mimeType: ImageMimeType,
+  existingCards?: ExistingCardSummary,
+  maxCards: number = 20,
+  additionalInstructions?: string,
+  customPrompt?: string
+): Promise<AnalysisResult> {
+  const existingCardsContext = existingCards
+    ? `
+EXISTING CARDS IN DECK (avoid duplicating these topics):
+- Total cards: ${existingCards.totalCount}
+- Topics already covered: ${existingCards.topics.join(', ')}
+- Sample existing cards:
+${existingCards.sampleCards.slice(0, 3).map(c => `  Q: ${c.front}\n  A: ${c.back}`).join('\n')}
+`
+    : ''
+
+  const userInstructions = additionalInstructions
+    ? `
+USER INSTRUCTIONS (follow these carefully):
+${additionalInstructions}
+`
+    : ''
+
+  // Use custom prompt if provided, otherwise use default
+  const basePrompt = customPrompt || DEFAULT_PROMPT
+
+  const prompt = `${basePrompt}
+
+You are analyzing an IMAGE. Extract all visible text, diagrams, charts, or educational content from this image and create flashcards based on what you see.
+
+PARAMETERS:
+- Maximum cards to generate: ${maxCards}
+${existingCards ? '- IMPORTANT: Avoid creating cards that duplicate existing topics' : ''}
+${userInstructions}
+${existingCardsContext}
+
+Analyze the image and create flashcards from:
+- Any visible text, notes, or written content
+- Diagrams, charts, or visual representations
+- Key concepts shown in the image
+- Labels, captions, or annotations
+
+Return your response as valid JSON with this exact structure:
+{
+  "analysis": {
+    "contentType": "notes" | "questions" | "textbook" | "slides" | "other",
+    "topics": ["topic1", "topic2", ...],
+    "coverage": "sparse" | "moderate" | "good" | "comprehensive",
+    "suggestions": ["suggestion1", "suggestion2", ...],
+    "specialAction": null
+  },
+  "flashcards": [
+    {"front": "Question here", "back": "Answer here"},
+    ...
+  ]
+}
+
+Return ONLY the JSON object, no other text.`
+
+  const responseText = await callAnthropicWithImage(prompt, imageBuffer, mimeType)
 
   try {
     return parseJsonResponse(responseText) as AnalysisResult

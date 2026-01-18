@@ -2,15 +2,32 @@ import { Suspense } from 'react'
 import DeckList from '@/components/DeckList'
 import StatsBar from '@/components/StatsBar'
 import StudySessionWrapper from './StudySessionWrapper'
+import TroubleStudySession from '@/components/TroubleStudySession'
 
 export default async function StudyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ deck?: string; weak?: string }>
+  searchParams: Promise<{ deck?: string; weak?: string; trouble?: string }>
 }) {
   const params = await searchParams
   const deckId = params.deck ? parseInt(params.deck) : null
   const weakOnly = params.weak === 'true'
+  const troubleOnly = params.trouble === 'true'
+
+  // Study trouble cards across all decks
+  if (troubleOnly && !deckId) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          </div>
+        }>
+          <TroubleStudySession />
+        </Suspense>
+      </div>
+    )
+  }
 
   if (deckId) {
     return (
@@ -20,7 +37,7 @@ export default async function StudyPage({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
         }>
-          <StudySessionWrapper deckId={deckId} weakOnly={weakOnly} />
+          <StudySessionWrapper deckId={deckId} weakOnly={weakOnly} troubleOnly={troubleOnly} />
         </Suspense>
       </div>
     )

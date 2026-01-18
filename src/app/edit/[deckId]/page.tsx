@@ -22,6 +22,16 @@ interface Flashcard {
   timesIncorrect: number
 }
 
+interface ReferenceFile {
+  id: number
+  deckId: number
+  fileName: string
+  blobUrl: string
+  fileType: string
+  fileSize: number | null
+  createdAt: string
+}
+
 // Calculate SRS level based on repetitions and interval
 function getSRSLevel(card: Flashcard): { label: string; color: string; bgColor: string } {
   const { repetitions, interval } = card
@@ -74,6 +84,13 @@ export default function EditDeckPage({
   const [generating, setGenerating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiSuccess, setAiSuccess] = useState<string | null>(null)
+
+  // Reference files state
+  const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
+  const [deletingFileId, setDeletingFileId] = useState<number | null>(null)
+  const [previewFile, setPreviewFile] = useState<ReferenceFile | null>(null)
+  const [previewContent, setPreviewContent] = useState<string | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const [applyingName, setApplyingName] = useState(false)
   const [summaryPopup, setSummaryPopup] = useState<{
     summary: string
@@ -89,9 +106,10 @@ export default function EditDeckPage({
   useEffect(() => {
     async function fetchData() {
       try {
-        const [deckRes, cardsRes] = await Promise.all([
+        const [deckRes, cardsRes, filesRes] = await Promise.all([
           fetch(`/api/decks/${deckId}`),
           fetch(`/api/flashcards/${deckId}`),
+          fetch(`/api/decks/${deckId}/files`),
         ])
 
         if (!deckRes.ok) throw new Error('Deck not found')
@@ -99,11 +117,13 @@ export default function EditDeckPage({
 
         const deckData = await deckRes.json()
         const cardsData = await cardsRes.json()
+        const filesData = filesRes.ok ? await filesRes.json() : []
 
         setDeck(deckData)
         setDeckName(deckData.name)
         setDeckDescription(deckData.description || '')
         setCards(cardsData)
+        setReferenceFiles(filesData)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load deck')
       } finally {
@@ -219,6 +239,51 @@ export default function EditDeckPage({
     } finally {
       setAddingCard(false)
     }
+  }
+
+  const handlePreviewFile = async (file: ReferenceFile) => {
+    setPreviewFile(file)
+    setPreviewContent(null)
+
+    // For text files, fetch the content
+    if (file.fileType === 'txt' || file.fileType === 'md') {
+      setLoadingPreview(true)
+      try {
+        const response = await fetch(file.blobUrl)
+        const text = await response.text()
+        setPreviewContent(text)
+      } catch {
+        setPreviewContent('Failed to load file content')
+      } finally {
+        setLoadingPreview(false)
+      }
+    }
+  }
+
+  const handleDeleteReferenceFile = async (fileId: number) => {
+    if (!confirm('Delete this reference file?')) return
+
+    setDeletingFileId(fileId)
+    try {
+      const res = await fetch(`/api/decks/${deckId}/files?fileId=${fileId}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) throw new Error('Failed to delete')
+
+      setReferenceFiles(referenceFiles.filter(f => f.id !== fileId))
+    } catch {
+      alert('Failed to delete file')
+    } finally {
+      setDeletingFileId(null)
+    }
+  }
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
   const handleApplySuggestedName = async () => {
@@ -458,6 +523,84 @@ export default function EditDeckPage({
             </div>
           )}
         </div>
+
+        {/* Reference Files Section */}
+        {referenceFiles.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 className="font-medium text-gray-800">Reference Files</h3>
+              <span className="text-xs text-gray-500">({referenceFiles.length})</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {referenceFiles.map((file) => (
+                <div
+                  key={file.id}
+                  className="group relative bg-gray-50 rounded-lg border border-gray-200 overflow-hidden hover:border-primary-300 transition-colors"
+                >
+                  {/* Clickable preview area */}
+                  <button
+                    onClick={() => handlePreviewFile(file)}
+                    className="w-full aspect-square flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition-colors"
+                  >
+                    {file.fileType === 'image' ? (
+                      <img
+                        src={file.blobUrl}
+                        alt={file.fileName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : file.fileType === 'pdf' ? (
+                      <div className="text-center">
+                        <svg className="w-10 h-10 text-red-400 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-xs text-gray-500 mt-1">PDF</span>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <svg className="w-10 h-10 text-blue-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-xs text-gray-500 mt-1">{file.fileType.toUpperCase()}</span>
+                      </div>
+                    )}
+                  </button>
+
+                  {/* File info and actions */}
+                  <div className="p-2">
+                    <p className="text-xs font-medium text-gray-700 truncate" title={file.fileName}>
+                      {file.fileName}
+                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-gray-400">
+                        {file.fileSize ? formatFileSize(file.fileSize) : file.fileType.toUpperCase()}
+                      </span>
+                      <button
+                        onClick={() => handleDeleteReferenceFile(file.id)}
+                        disabled={deletingFileId === file.id}
+                        className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors disabled:opacity-50"
+                        title="Delete"
+                      >
+                        {deletingFileId === file.id ? (
+                          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* AI Generate Section - Always visible */}
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4 mb-6">
@@ -737,6 +880,97 @@ export default function EditDeckPage({
           )}
         </div>
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                {previewFile.fileType === 'image' && (
+                  <div className="w-8 h-8 bg-purple-100 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
+                {previewFile.fileType === 'pdf' && (
+                  <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+                {(previewFile.fileType === 'txt' || previewFile.fileType === 'md') && (
+                  <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-semibold text-gray-900">{previewFile.fileName}</h3>
+                  <p className="text-xs text-gray-500">
+                    {previewFile.fileType.toUpperCase()}
+                    {previewFile.fileSize && ` - ${formatFileSize(previewFile.fileSize)}`}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewFile.blobUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Open in new tab"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+                <button
+                  onClick={() => setPreviewFile(null)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto bg-gray-100">
+              {previewFile.fileType === 'image' ? (
+                <div className="flex items-center justify-center p-4 min-h-[400px]">
+                  <img
+                    src={previewFile.blobUrl}
+                    alt={previewFile.fileName}
+                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+                  />
+                </div>
+              ) : previewFile.fileType === 'pdf' ? (
+                <iframe
+                  src={previewFile.blobUrl}
+                  className="w-full h-[70vh] border-0"
+                  title={previewFile.fileName}
+                />
+              ) : loadingPreview ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                </div>
+              ) : (
+                <div className="p-4">
+                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono bg-white p-4 rounded-lg border border-gray-200 max-h-[70vh] overflow-auto">
+                    {previewContent}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Popup Modal */}
       {summaryPopup && (

@@ -24,7 +24,7 @@
 - **M8** [UI] Layout Redesign → `DONE`
 - **M9** [Core, UI] Quiz Modes → `DONE`
 - **M10** [UI] SRS Visibility & Practice Mode → `DONE`
-- **M11** [Core, UI] Reference Sheets → `READY`
+- **M11** [Core, UI] Reference Sheets → `BLOCKED` (needs Blob token)
 - **M12** [Core, UI] Nested Folders → `ACTIVE`
 - **M13** [Core, UI] User Accounts → `READY`
 
@@ -57,29 +57,32 @@ Implemented full AI card CRUD operations. AI now understands it can add, update,
 - Changes need to be committed
 
 ### UI
-**Last Session:** 2026-01-15
+**Last Session:** 2026-01-18
 
-**Milestone:** M10 - SRS Visibility & Practice Mode (Completed)
+**Milestone:** Trouble Cards Feature (Enhancement)
 
 **What happened:**
-Completed M10 with full SRS visibility features:
-- Added SRS level badges to Flashcard component (New/Learning/Review/Mastered with colors)
-- StudySession now passes SRS data to flashcards during study
-- Deck edit view shows SRS badge + stats (interval, accuracy) per card
-- Added "Practice Weak Cards" mode - filters to only New/Learning cards
-- Lightning bolt button on deck list to practice weak cards
-- Badge in study header when in weak cards mode
-- Empty state message when no weak cards exist
+Added "Trouble Cards" feature to help users focus on cards they frequently miss:
+- New API endpoint `/api/stats/trouble-cards` returns cards sorted by error rate
+- TroubleCards component on dashboard shows top 5 most-missed cards with error rates
+- Click to expand and see the answer, links to deck edit pages
+- "Practice These" button starts study session with trouble cards across all decks
+- TroubleStudySession component for studying trouble cards from all decks
+- Added `trouble=true` URL param for targeted practice mode
+- Fixed pre-existing TypeScript error in quiz session page
 
 **Key changes:**
-- `src/components/Flashcard.tsx` - SRS level badge with getSRSLevel()
-- `src/components/StudySession.tsx` - weakOnly filter, isWeakCard() helper
-- `src/app/edit/[deckId]/page.tsx` - SRS stats per card in list
-- `src/components/DeckList.tsx` - Practice weak button
-- `src/app/study/page.tsx` - weak query param support
+- `src/app/api/stats/trouble-cards/route.ts` - NEW - API endpoint
+- `src/components/TroubleCards.tsx` - NEW - Dashboard component
+- `src/components/TroubleStudySession.tsx` - NEW - Cross-deck study session
+- `src/app/page.tsx` - Added TroubleCards section
+- `src/app/study/page.tsx` - Support for trouble mode
+- `src/components/StudySession.tsx` - troubleOnly filter support
 
 **Next up:**
-- M11: Reference Sheets, M12: Nested Folders, or M13: User Accounts
+- M11: Reference Sheets (BLOCKED - needs Blob token)
+- M12: Nested Folders
+- M13: User Accounts
 - Changes need to be committed
 
 ---
@@ -266,13 +269,16 @@ Completed M10 with full SRS visibility features:
 **What:** Store uploaded files and allow viewing them while studying as reference material.
 
 **Test Criteria:**
-- [ ] Uploaded files stored (not just text extracted)
-- [ ] Can view original file from deck page
-- [ ] Side panel or toggle to view file while studying
-- [ ] Supports PDF, TXT, MD viewing
-- [ ] File associated with deck (one file per deck, or multiple?)
+- [x] Uploaded files stored (not just text extracted) - Code done, needs BLOB_READ_WRITE_TOKEN
+- [x] Can view original file from deck page - Preview modal built
+- [x] Side panel or toggle to view file while studying - ReferencePanel component done
+- [x] Supports PDF, TXT, MD, images viewing
+- [x] File associated with deck (multiple files per deck supported)
 
-**Status:** READY
+**Pending:**
+- [ ] Set up Vercel Blob storage and add BLOB_READ_WRITE_TOKEN to .env
+
+**Status:** BLOCKED (needs Blob token)
 
 ---
 

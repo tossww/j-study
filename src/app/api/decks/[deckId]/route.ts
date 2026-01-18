@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, decks, folders } from '@/db'
-import { eq } from 'drizzle-orm'
+import { eq, and, or, isNull } from 'drizzle-orm'
+import { auth } from '@/auth'
 
 // GET /api/decks/[deckId] - Get a single deck
 export async function GET(
@@ -8,6 +9,11 @@ export async function GET(
   { params }: { params: Promise<{ deckId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { deckId: deckIdStr } = await params
     const deckId = parseInt(deckIdStr)
 
@@ -21,7 +27,10 @@ export async function GET(
     const [deck] = await db
       .select()
       .from(decks)
-      .where(eq(decks.id, deckId))
+      .where(and(
+        eq(decks.id, deckId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
 
     if (!deck) {
       return NextResponse.json(
@@ -46,6 +55,11 @@ export async function PATCH(
   { params }: { params: Promise<{ deckId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { deckId: deckIdStr } = await params
     const deckId = parseInt(deckIdStr)
 
@@ -75,11 +89,14 @@ export async function PATCH(
       )
     }
 
-    // Check if deck exists
+    // Check if deck exists and belongs to user
     const [existingDeck] = await db
       .select()
       .from(decks)
-      .where(eq(decks.id, deckId))
+      .where(and(
+        eq(decks.id, deckId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
 
     if (!existingDeck) {
       return NextResponse.json(
@@ -134,6 +151,11 @@ export async function DELETE(
   { params }: { params: Promise<{ deckId: string }> }
 ) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { deckId: deckIdStr } = await params
     const deckId = parseInt(deckIdStr)
 
@@ -144,11 +166,14 @@ export async function DELETE(
       )
     }
 
-    // Check if deck exists
+    // Check if deck exists and belongs to user
     const [deck] = await db
       .select()
       .from(decks)
-      .where(eq(decks.id, deckId))
+      .where(and(
+        eq(decks.id, deckId),
+        or(eq(decks.userId, session.user.id), isNull(decks.userId))
+      ))
 
     if (!deck) {
       return NextResponse.json(
