@@ -36,8 +36,10 @@ function getImageMimeType(fileName: string): ImageMimeType | null {
 }
 
 async function convertHeifToJpeg(buffer: Buffer): Promise<Buffer> {
+  // Convert Node Buffer to ArrayBuffer for heic-convert
+  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
   const outputBuffer = await heicConvert({
-    buffer,
+    buffer: arrayBuffer,
     format: 'JPEG',
     quality: 0.9
   })
@@ -176,11 +178,11 @@ export async function POST(request: NextRequest) {
     let result
     if (isImage) {
       // Convert HEIF/HEIC to JPEG if needed
-      let imageBuffer = buffer
+      let imageBuffer: Buffer = buffer
       let mimeType: ImageMimeType
 
       if (isHeifFile(file.name)) {
-        imageBuffer = await convertHeifToJpeg(buffer)
+        imageBuffer = await convertHeifToJpeg(buffer) as Buffer
         mimeType = 'image/jpeg'
       } else {
         const detectedMime = getImageMimeType(file.name)
