@@ -14,6 +14,8 @@ interface FlashcardProps {
   onResult: (correct: boolean) => void
   onEdit?: () => void
   srsData?: SRSData
+  viewOnly?: boolean
+  reverseMode?: boolean
 }
 
 // Calculate SRS level based on repetitions and interval
@@ -33,7 +35,7 @@ function getSRSLevel(srs?: SRSData): { label: string; color: string; bgColor: st
   }
 }
 
-export default function Flashcard({ front, back, onResult, onEdit, srsData }: FlashcardProps) {
+export default function Flashcard({ front, back, onResult, onEdit, srsData, viewOnly = false, reverseMode = false }: FlashcardProps) {
   const [flipped, setFlipped] = useState(false)
   const srsLevel = getSRSLevel(srsData)
 
@@ -78,11 +80,14 @@ export default function Flashcard({ front, back, onResult, onEdit, srsData }: Fl
 
       {/* Instructions */}
       <p className="text-center text-gray-500 text-sm mt-4 mb-4">
-        {flipped ? 'How did you do?' : 'Click card to reveal answer'}
+        {viewOnly
+          ? (flipped ? 'Reviewing previous card' : `Click card to reveal ${reverseMode ? 'question' : 'answer'}`)
+          : (flipped ? 'How did you do?' : `Click card to reveal ${reverseMode ? 'question' : 'answer'}`)
+        }
       </p>
 
-      {/* Result buttons - only show when flipped */}
-      {flipped && (
+      {/* Result buttons - only show when flipped and not in view-only mode */}
+      {flipped && !viewOnly && (
         <div className="flex gap-4 justify-center items-center">
           <button
             onClick={() => handleResult(false)}

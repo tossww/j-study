@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         imageBuffer,
         mimeType,
         existingCardSummary,
-        20,
+        100,
         additionalInstructions || undefined,
         customPrompt || undefined
       )
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
         content,
         existingCardSummary,
         generateAnswers,
-        20,
+        100,
         additionalInstructions || undefined,
         customPrompt || undefined
       )

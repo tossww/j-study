@@ -30,10 +30,12 @@ function isTroubleCard(card: FlashcardType): boolean {
 export default function StudySession({ deckId, deckName, weakOnly = false, troubleOnly = false }: StudySessionProps) {
   const [cards, setCards] = useState<FlashcardType[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [answeredUpTo, setAnsweredUpTo] = useState(-1) // Track furthest answered card
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({ correct: 0, incorrect: 0 })
   const [completed, setCompleted] = useState(false)
+  const [reverseMode, setReverseMode] = useState(false) // Show answer first, guess question
 
   // Edit modal state
   const [editing, setEditing] = useState(false)
@@ -120,6 +122,9 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
       console.error('Failed to save progress')
     }
 
+    // Mark this card as answered
+    setAnsweredUpTo(currentIndex)
+
     // Move to next card or complete
     if (currentIndex < cards.length - 1) {
       setCurrentIndex(prev => prev + 1)
@@ -128,8 +133,24 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     }
   }
 
+  const goToPreviousCard = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1)
+    }
+  }
+
+  const goToNextCard = () => {
+    if (currentIndex <= answeredUpTo) {
+      setCurrentIndex(prev => prev + 1)
+    }
+  }
+
+  // Check if we're viewing a previous card (view-only mode)
+  const isViewingPrevious = currentIndex < answeredUpTo + 1 && currentIndex <= answeredUpTo
+
   const restartSession = () => {
     setCurrentIndex(0)
+    setAnsweredUpTo(-1)
     setStats({ correct: 0, incorrect: 0 })
     setCompleted(false)
   }
@@ -274,6 +295,21 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Reverse Mode Toggle */}
+            <button
+              onClick={() => setReverseMode(!reverseMode)}
+              className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
+                reverseMode
+                  ? 'bg-purple-100 text-purple-700'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+              title={reverseMode ? 'Reverse mode: Answer → Question' : 'Normal mode: Question → Answer'}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+              <span>{reverseMode ? 'A→Q' : 'Q→A'}</span>
+            </button>
             {referenceFiles.length > 0 && (
               <button
                 onClick={() => setShowReferencePanel(!showReferencePanel)}
@@ -301,18 +337,47 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
         </div>
       </div>
 
-      {/* Current flashcard */}
-      <Flashcard
-        front={cards[currentIndex].front}
-        back={cards[currentIndex].back}
-        onResult={handleResult}
-        onEdit={handleEditClick}
-        srsData={{
-          repetitions: cards[currentIndex].repetitions,
-          interval: cards[currentIndex].interval,
-          easeFactor: cards[currentIndex].easeFactor,
-        }}
-      />
+      {/* Flashcard with side navigation */}
+      <div className="flex items-center justify-center gap-4">
+        {/* Left arrow - Previous */}
+        <button
+          onClick={goToPreviousCard}
+          disabled={currentIndex === 0}
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-0 disabled:cursor-default"
+          title="Previous card"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        {/* Current flashcard */}
+        <Flashcard
+          front={reverseMode ? cards[currentIndex].back : cards[currentIndex].front}
+          back={reverseMode ? cards[currentIndex].front : cards[currentIndex].back}
+          onResult={handleResult}
+          onEdit={handleEditClick}
+          srsData={{
+            repetitions: cards[currentIndex].repetitions,
+            interval: cards[currentIndex].interval,
+            easeFactor: cards[currentIndex].easeFactor,
+          }}
+          viewOnly={isViewingPrevious}
+          reverseMode={reverseMode}
+        />
+
+        {/* Right arrow - Next (only when viewing previous) */}
+        <button
+          onClick={goToNextCard}
+          disabled={!isViewingPrevious}
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-0 disabled:cursor-default"
+          title="Next card"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
 
       {/* Edit Modal */}
       {editing && (

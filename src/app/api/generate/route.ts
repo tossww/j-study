@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const result = await generateFromInstructions(
       instructions,
       undefined,
-      15,
+      100,
       customPrompt || undefined,
       undefined
     )
