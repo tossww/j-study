@@ -58,6 +58,7 @@ export const folders = pgTable('folders', {
   name: text('name').notNull(),
   parentId: integer('parent_id'),  // Self-reference, null for root folders
   depth: integer('depth').default(0).notNull(), // 0, 1, or 2 (enforced in API)
+  sortOrder: integer('sort_order').default(0).notNull(), // For ordering folders
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }), // nullable for migration
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -68,6 +69,7 @@ export const decks = pgTable('decks', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
+  originalPrompt: text('original_prompt'), // User's instructions when creating deck
   sourceFileName: text('source_file_name'),
   analysis: text('analysis'), // JSON string with AI feedback
   folderId: integer('folder_id').references(() => folders.id, { onDelete: 'set null' }),

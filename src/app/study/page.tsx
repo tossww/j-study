@@ -1,16 +1,18 @@
 import { Suspense } from 'react'
-import DeckList from '@/components/DeckList'
+import DeckSelector from '@/components/DeckSelector'
 import StatsBar from '@/components/StatsBar'
 import StudySessionWrapper from './StudySessionWrapper'
 import TroubleStudySession from '@/components/TroubleStudySession'
+import CombinedStudySession from '@/components/CombinedStudySession'
 
 export default async function StudyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ deck?: string; weak?: string; trouble?: string }>
+  searchParams: Promise<{ deck?: string; decks?: string; weak?: string; trouble?: string }>
 }) {
   const params = await searchParams
   const deckId = params.deck ? parseInt(params.deck) : null
+  const deckIds = params.decks ? params.decks.split(',').map(id => parseInt(id)).filter(id => !isNaN(id)) : []
   const weakOnly = params.weak === 'true'
   const troubleOnly = params.trouble === 'true'
 
@@ -24,6 +26,21 @@ export default async function StudyPage({
           </div>
         }>
           <TroubleStudySession />
+        </Suspense>
+      </div>
+    )
+  }
+
+  // Study combined decks
+  if (deckIds.length >= 2) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          </div>
+        }>
+          <CombinedStudySession deckIds={deckIds} weakOnly={weakOnly} troubleOnly={troubleOnly} />
         </Suspense>
       </div>
     )
@@ -56,7 +73,7 @@ export default async function StudyPage({
 
       <div className="mt-8">
         <Suspense fallback={<div className="h-48 bg-white rounded-2xl animate-pulse" />}>
-          <DeckList />
+          <DeckSelector />
         </Suspense>
       </div>
     </div>

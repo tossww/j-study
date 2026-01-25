@@ -8,6 +8,7 @@ interface Deck {
   id: number
   name: string
   description: string | null
+  originalPrompt: string | null
 }
 
 interface Flashcard {
@@ -508,6 +509,12 @@ export default function EditDeckPage({
                 <h1 className="text-2xl font-bold text-gray-900">{deck.name}</h1>
                 {deck.description && (
                   <p className="text-gray-600 mt-1">{deck.description}</p>
+                )}
+                {deck.originalPrompt && (
+                  <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <p className="text-xs font-medium text-purple-600 mb-1">Original Instructions:</p>
+                    <p className="text-sm text-purple-800">{deck.originalPrompt}</p>
+                  </div>
                 )}
                 <p className="text-sm text-gray-400 mt-2">{cards.length} cards</p>
               </div>

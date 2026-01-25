@@ -26,6 +26,9 @@ interface Folder {
 
 interface DeckListProps {
   folderId?: number | null
+  selectMode?: boolean
+  selectedDecks?: number[]
+  onSelectionChange?: (deckIds: number[]) => void
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -44,7 +47,7 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function DeckList({ folderId }: DeckListProps = {}) {
+export default function DeckList({ folderId, selectMode = false, selectedDecks = [], onSelectionChange }: DeckListProps = {}) {
   const router = useRouter()
   const [decks, setDecks] = useState<Deck[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
@@ -176,6 +179,18 @@ export default function DeckList({ folderId }: DeckListProps = {}) {
     setDraggingId(null)
   }
 
+  const handleDeckClick = (deckId: number) => {
+    if (selectMode && onSelectionChange) {
+      if (selectedDecks.includes(deckId)) {
+        onSelectionChange(selectedDecks.filter(id => id !== deckId))
+      } else {
+        onSelectionChange([...selectedDecks, deckId])
+      }
+    } else {
+      router.push(`/study?deck=${deckId}`)
+    }
+  }
+
   // Listen for deck-moved events from FolderTree/FolderContents
   useEffect(() => {
     function handleDeckMoved(e: CustomEvent<{ deckId: number; targetFolderId: number | null }>) {
@@ -234,21 +249,40 @@ export default function DeckList({ folderId }: DeckListProps = {}) {
       {decks.map((deck) => (
         <div
           key={deck.id}
-          draggable
-          onDragStart={(e) => handleDragStart(e, deck)}
+          draggable={!selectMode}
+          onDragStart={(e) => !selectMode && handleDragStart(e, deck)}
           onDragEnd={handleDragEnd}
-          onClick={() => router.push(`/study?deck=${deck.id}`)}
-          className={`group relative p-4 bg-white rounded-2xl shadow-soft border border-gray-50 hover:shadow-soft-lg hover:border-primary-100 transition-all cursor-pointer ${
+          onClick={() => handleDeckClick(deck.id)}
+          className={`group relative p-4 bg-white rounded-2xl shadow-soft border transition-all cursor-pointer ${
             draggingId === deck.id ? 'opacity-50 scale-95' : ''
+          } ${
+            selectMode && selectedDecks.includes(deck.id)
+              ? 'border-primary-400 bg-primary-50 shadow-soft-lg'
+              : 'border-gray-50 hover:shadow-soft-lg hover:border-primary-100'
           }`}
         >
           <div className="flex justify-between items-start">
             <div className="flex items-start gap-4 flex-1 pr-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-accent-lavender flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-              </div>
+              {/* Checkbox in select mode */}
+              {selectMode ? (
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                  selectedDecks.includes(deck.id)
+                    ? 'bg-primary-500'
+                    : 'bg-gray-100 border-2 border-gray-200'
+                }`}>
+                  {selectedDecks.includes(deck.id) && (
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-accent-lavender flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-gray-900 truncate">{deck.name}</h3>
                 <div className="flex items-center gap-3 mt-1">
@@ -266,7 +300,8 @@ export default function DeckList({ folderId }: DeckListProps = {}) {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {!selectMode && (
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Link
                 href={`/study?deck=${deck.id}&weak=true`}
                 onClick={(e) => e.stopPropagation()}
@@ -428,6 +463,7 @@ export default function DeckList({ folderId }: DeckListProps = {}) {
                 )}
               </button>
             </div>
+            )}
           </div>
         </div>
       ))}

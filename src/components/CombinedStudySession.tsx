@@ -3,12 +3,19 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Flashcard from './Flashcard'
-import ReferencePanel, { ReferenceFile } from './ReferencePanel'
 import type { Flashcard as FlashcardType } from '@/db/schema'
 
-interface StudySessionProps {
-  deckId: number
+interface Deck {
+  id: number
+  name: string
+}
+
+interface CardWithDeck extends FlashcardType {
   deckName: string
+}
+
+interface CombinedStudySessionProps {
+  deckIds: number[]
   weakOnly?: boolean
   troubleOnly?: boolean
 }
@@ -16,57 +23,66 @@ interface StudySessionProps {
 // Check if a card is "weak" (New or Learning)
 function isWeakCard(card: FlashcardType): boolean {
   const { repetitions, interval } = card
-  // New or Learning cards
   return repetitions === 0 || repetitions <= 2 || interval <= 3
 }
 
 // Check if a card is a "trouble" card (high error rate)
 function isTroubleCard(card: FlashcardType): boolean {
   const total = card.timesCorrect + card.timesIncorrect
-  // Must have at least one error to be a trouble card
   return card.timesIncorrect > 0 && total > 0
 }
 
-export default function StudySession({ deckId, deckName, weakOnly = false, troubleOnly = false }: StudySessionProps) {
-  const [cards, setCards] = useState<FlashcardType[]>([])
+export default function CombinedStudySession({ deckIds, weakOnly = false, troubleOnly = false }: CombinedStudySessionProps) {
+  const [cards, setCards] = useState<CardWithDeck[]>([])
+  const [decks, setDecks] = useState<Deck[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [answeredUpTo, setAnsweredUpTo] = useState(-1) // Track furthest answered card
+  const [answeredUpTo, setAnsweredUpTo] = useState(-1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({ correct: 0, incorrect: 0 })
   const [completed, setCompleted] = useState(false)
-  const [reverseMode, setReverseMode] = useState(false) // Show answer first, guess question
-  const [shuffled, setShuffled] = useState(false)
-
-  // Edit modal state
-  const [editing, setEditing] = useState(false)
-  const [editFront, setEditFront] = useState('')
-  const [editBack, setEditBack] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  // Reference panel state
-  const [referenceFiles, setReferenceFiles] = useState<ReferenceFile[]>([])
-  const [showReferencePanel, setShowReferencePanel] = useState(false)
+  const [shuffled, setShuffled] = useState(!troubleOnly) // Already shuffled by default (unless trouble mode)
 
   useEffect(() => {
     async function fetchCards() {
       try {
-        const response = await fetch(`/api/flashcards/${deckId}`)
-        if (!response.ok) throw new Error('Failed to fetch cards')
-        const data = await response.json()
+        // Fetch all decks info and cards in parallel
+        const deckPromises = deckIds.map(async (deckId) => {
+          const [deckRes, cardsRes] = await Promise.all([
+            fetch(`/api/decks/${deckId}`),
+            fetch(`/api/flashcards/${deckId}`)
+          ])
 
-        let filteredCards = data
+          if (!deckRes.ok || !cardsRes.ok) {
+            throw new Error(`Failed to fetch deck ${deckId}`)
+          }
 
-        // Filter for weak cards (low SRS level)
+          const deck = await deckRes.json()
+          const deckCards = await cardsRes.json()
+
+          return {
+            deck: { id: deck.id, name: deck.name },
+            cards: deckCards.map((card: FlashcardType) => ({
+              ...card,
+              deckName: deck.name
+            }))
+          }
+        })
+
+        const results = await Promise.all(deckPromises)
+
+        // Collect decks and combine all cards
+        const allDecks = results.map(r => r.deck)
+        let allCards = results.flatMap(r => r.cards)
+
+        // Filter based on mode
         if (weakOnly) {
-          filteredCards = data.filter(isWeakCard)
+          allCards = allCards.filter(isWeakCard)
         }
-
-        // Filter for trouble cards (high error rate), sorted by error rate
         if (troubleOnly) {
-          filteredCards = data
+          allCards = allCards
             .filter(isTroubleCard)
-            .sort((a: FlashcardType, b: FlashcardType) => {
+            .sort((a, b) => {
               const aTotal = a.timesCorrect + a.timesIncorrect
               const bTotal = b.timesCorrect + b.timesIncorrect
               const aRate = aTotal > 0 ? a.timesIncorrect / aTotal : 0
@@ -75,7 +91,11 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
             })
         }
 
-        setCards(filteredCards)
+        // Shuffle combined cards (unless trouble mode which is sorted by error rate)
+        const finalCards = troubleOnly ? allCards : allCards.sort(() => Math.random() - 0.5)
+
+        setDecks(allDecks)
+        setCards(finalCards)
       } catch {
         setError('Failed to load flashcards')
       } finally {
@@ -84,35 +104,16 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     }
 
     fetchCards()
-  }, [deckId, weakOnly, troubleOnly])
-
-  // Fetch reference files for this deck
-  useEffect(() => {
-    async function fetchReferenceFiles() {
-      try {
-        const response = await fetch(`/api/decks/${deckId}/files`)
-        if (response.ok) {
-          const files = await response.json()
-          setReferenceFiles(files)
-        }
-      } catch (error) {
-        console.error('Failed to fetch reference files:', error)
-      }
-    }
-
-    fetchReferenceFiles()
-  }, [deckId])
+  }, [deckIds, weakOnly, troubleOnly])
 
   const handleResult = async (correct: boolean) => {
     const card = cards[currentIndex]
 
-    // Update stats
     setStats(prev => ({
       correct: prev.correct + (correct ? 1 : 0),
       incorrect: prev.incorrect + (correct ? 0 : 1),
     }))
 
-    // Send result to server
     try {
       await fetch('/api/study', {
         method: 'POST',
@@ -123,10 +124,8 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
       console.error('Failed to save progress')
     }
 
-    // Mark this card as answered
     setAnsweredUpTo(currentIndex)
 
-    // Move to next card or complete
     if (currentIndex < cards.length - 1) {
       setCurrentIndex(prev => prev + 1)
     } else {
@@ -146,7 +145,6 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     }
   }
 
-  // Check if we're viewing a previous card (view-only mode)
   const isViewingPrevious = currentIndex < answeredUpTo + 1 && currentIndex <= answeredUpTo
 
   const restartSession = () => {
@@ -154,11 +152,13 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     setAnsweredUpTo(-1)
     setStats({ correct: 0, incorrect: 0 })
     setCompleted(false)
+    // Re-shuffle cards
+    setCards(prev => [...prev].sort(() => Math.random() - 0.5))
+    setShuffled(true)
   }
 
   const shuffleCards = () => {
     if (currentIndex > 0) {
-      // Don't shuffle mid-session - restart first
       if (!confirm('Shuffling will restart your session. Continue?')) return
       setCurrentIndex(0)
       setAnsweredUpTo(-1)
@@ -166,38 +166,6 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     }
     setCards(prev => [...prev].sort(() => Math.random() - 0.5))
     setShuffled(true)
-  }
-
-  const handleEditClick = () => {
-    const card = cards[currentIndex]
-    setEditFront(card.front)
-    setEditBack(card.back)
-    setEditing(true)
-  }
-
-  const handleSaveEdit = async () => {
-    const card = cards[currentIndex]
-    setSaving(true)
-
-    try {
-      const response = await fetch(`/api/flashcards/card/${card.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ front: editFront, back: editBack }),
-      })
-
-      if (!response.ok) throw new Error('Failed to save')
-
-      // Update local state
-      setCards(prev => prev.map((c, i) =>
-        i === currentIndex ? { ...c, front: editFront, back: editBack } : c
-      ))
-      setEditing(false)
-    } catch {
-      alert('Failed to save changes')
-    } finally {
-      setSaving(false)
-    }
   }
 
   if (loading) {
@@ -218,22 +186,14 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
 
   if (cards.length === 0) {
     const getMessage = () => {
-      if (troubleOnly) return 'No trouble cards! You haven\'t missed any cards yet.'
-      if (weakOnly) return 'No weak cards to practice! All cards are well-learned.'
-      return 'No flashcards in this deck'
+      if (troubleOnly) return 'No trouble cards! You haven\'t missed any cards in these decks yet.'
+      if (weakOnly) return 'No weak cards to practice! All cards in these decks are well-learned.'
+      return 'No flashcards in selected decks'
     }
 
     return (
       <div className="text-center p-8">
         <p className="text-gray-600">{getMessage()}</p>
-        {(weakOnly || troubleOnly) && (
-          <Link
-            href={`/study?deck=${deckId}`}
-            className="inline-block mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            Study All Cards
-          </Link>
-        )}
       </div>
     )
   }
@@ -278,9 +238,11 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     )
   }
 
+  const currentCard = cards[currentIndex]
+
   return (
     <div>
-      {/* Exit button and Progress */}
+      {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
           <div className="flex items-center gap-3">
@@ -295,7 +257,9 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
               <span>Exit</span>
             </Link>
             <span className="text-gray-300">|</span>
-            <span>{deckName}</span>
+            <span className="px-2 py-0.5 bg-purple-100 text-purple-600 text-xs rounded-full font-medium">
+              Combined: {decks.map(d => d.name).join(' + ')}
+            </span>
             {weakOnly && (
               <span className="px-2 py-0.5 bg-orange-100 text-orange-600 text-xs rounded-full font-medium">
                 Weak Cards
@@ -323,37 +287,6 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
               </svg>
               <span>Shuffle</span>
             </button>
-            {/* Reverse Mode Toggle */}
-            <button
-              onClick={() => setReverseMode(!reverseMode)}
-              className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
-                reverseMode
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-              }`}
-              title={reverseMode ? 'Reverse mode: Answer → Question' : 'Normal mode: Question → Answer'}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-              </svg>
-              <span>{reverseMode ? 'A→Q' : 'Q→A'}</span>
-            </button>
-            {referenceFiles.length > 0 && (
-              <button
-                onClick={() => setShowReferencePanel(!showReferencePanel)}
-                className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
-                  showReferencePanel
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-                title="View reference materials"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span>Ref</span>
-              </button>
-            )}
             <span>{currentIndex + 1} / {cards.length}</span>
           </div>
         </div>
@@ -365,9 +298,15 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
         </div>
       </div>
 
+      {/* Deck indicator for current card */}
+      <div className="text-center mb-2">
+        <span className="text-xs text-gray-400">
+          From: {currentCard.deckName}
+        </span>
+      </div>
+
       {/* Flashcard with side navigation */}
       <div className="flex items-center justify-center gap-4">
-        {/* Left arrow - Previous */}
         <button
           onClick={goToPreviousCard}
           disabled={currentIndex === 0}
@@ -379,22 +318,18 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
           </svg>
         </button>
 
-        {/* Current flashcard */}
         <Flashcard
-          front={reverseMode ? cards[currentIndex].back : cards[currentIndex].front}
-          back={reverseMode ? cards[currentIndex].front : cards[currentIndex].back}
+          front={currentCard.front}
+          back={currentCard.back}
           onResult={handleResult}
-          onEdit={handleEditClick}
           srsData={{
-            repetitions: cards[currentIndex].repetitions,
-            interval: cards[currentIndex].interval,
-            easeFactor: cards[currentIndex].easeFactor,
+            repetitions: currentCard.repetitions,
+            interval: currentCard.interval,
+            easeFactor: currentCard.easeFactor,
           }}
           viewOnly={isViewingPrevious}
-          reverseMode={reverseMode}
         />
 
-        {/* Right arrow - Next (only when viewing previous) */}
         <button
           onClick={goToNextCard}
           disabled={!isViewingPrevious}
@@ -407,54 +342,6 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
         </button>
       </div>
 
-      {/* Edit Modal */}
-      {editing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Card</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Front (Question)</label>
-                <textarea
-                  value={editFront}
-                  onChange={(e) => setEditFront(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Back (Answer)</label>
-                <textarea
-                  value={editBack}
-                  onChange={(e) => setEditBack(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setEditing(false)}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={saving || !editFront.trim() || !editBack.trim()}
-                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Session stats */}
       <div className="flex justify-center gap-8 mt-8 text-sm">
         <div className="text-center">
@@ -466,13 +353,6 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
           <span className="text-gray-500"> incorrect</span>
         </div>
       </div>
-
-      {/* Reference Panel */}
-      <ReferencePanel
-        files={referenceFiles}
-        isOpen={showReferencePanel}
-        onClose={() => setShowReferencePanel(false)}
-      />
     </div>
   )
 }

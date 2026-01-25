@@ -2,7 +2,7 @@ import type { DeckAnalysis } from '@/db/schema'
 import { DEFAULT_PROMPT } from './prompt-config'
 
 // Model to use - using Haiku for faster responses on serverless
-const MODEL = 'claude-3-5-haiku-20241022'
+const MODEL = 'claude-opus-4-5-20251101'
 const API_URL = 'https://api.anthropic.com/v1/messages'
 
 interface AnthropicResponse {
@@ -21,7 +21,7 @@ type ImageContent = {
 }
 type ContentBlock = TextContent | ImageContent
 
-async function callAnthropic(prompt: string, maxTokens: number = 16384): Promise<string> {
+async function callAnthropic(prompt: string, maxTokens: number = 32000): Promise<string> {
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
@@ -56,7 +56,7 @@ async function callAnthropicWithImage(
   prompt: string,
   imageBuffer: Buffer,
   mimeType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-  maxTokens: number = 16384
+  maxTokens: number = 32000
 ): Promise<string> {
   const base64Image = imageBuffer.toString('base64')
 

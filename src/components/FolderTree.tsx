@@ -9,6 +9,7 @@ interface Folder {
   parentId: number | null
   depth: number
   deckCount: number
+  sortOrder: number
 }
 
 interface TreeNode extends Folder {
@@ -95,9 +96,9 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
       }
     })
 
-    // Sort by name
+    // Sort by sortOrder, then by name
     const sortNodes = (nodes: TreeNode[]) => {
-      nodes.sort((a, b) => a.name.localeCompare(b.name))
+      nodes.sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name))
       nodes.forEach(n => sortNodes(n.children))
     }
     sortNodes(roots)
@@ -192,6 +193,22 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
     } catch (error) {
       console.error('Error deleting folder:', error)
     }
+  }
+
+  async function reorderFolder(folderId: number, direction: 'up' | 'down', parentId: number | null) {
+    try {
+      const res = await fetch('/api/folders/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId, direction, parentId }),
+      })
+      if (res.ok) {
+        fetchFolders()
+      }
+    } catch (error) {
+      console.error('Error reordering folder:', error)
+    }
+    setMenuOpen(null)
   }
 
   // Drag and drop handlers for moving decks into folders
@@ -366,6 +383,25 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
               {/* Dropdown menu */}
               {menuOpen === node.id && (
                 <div className="absolute right-0 top-6 z-50 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px]">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); reorderFolder(node.id, 'up', node.parentId) }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                    Move Up
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); reorderFolder(node.id, 'down', node.parentId) }}
+                    className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Move Down
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
                   <button
                     onClick={(e) => startEdit(node, e)}
                     className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100"

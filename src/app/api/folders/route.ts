@@ -17,6 +17,7 @@ export async function GET() {
         name: folders.name,
         parentId: folders.parentId,
         depth: folders.depth,
+        sortOrder: folders.sortOrder,
         createdAt: folders.createdAt,
         updatedAt: folders.updatedAt,
         deckCount: sql<number>`(
@@ -25,7 +26,7 @@ export async function GET() {
       })
       .from(folders)
       .where(or(eq(folders.userId, session.user.id), isNull(folders.userId)))
-      .orderBy(folders.name)
+      .orderBy(folders.sortOrder, folders.name)
 
     return NextResponse.json(allFolders)
   } catch (error) {

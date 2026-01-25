@@ -5,8 +5,9 @@ import { parseFileFromBuffer } from '@/lib/file-parser'
 import { analyzeAndGenerateFlashcards, analyzeImageAndGenerateFlashcards, ExistingCardSummary, ImageMimeType } from '@/lib/anthropic'
 import { put } from '@vercel/blob'
 import { auth } from '@/auth'
-import heicConvert from 'heic-convert'
 import sharp from 'sharp'
+import heicDecode from 'heic-decode'
+import jpeg from 'jpeg-js'
 
 // Image MIME types we support (after conversion)
 const IMAGE_MIME_TYPES: Record<string, ImageMimeType> = {
@@ -36,14 +37,10 @@ function getImageMimeType(fileName: string): ImageMimeType | null {
 }
 
 async function convertHeifToJpeg(buffer: Buffer): Promise<Buffer> {
-  // Convert Node Buffer to ArrayBuffer for heic-convert
-  const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
-  const outputBuffer = await heicConvert({
-    buffer: arrayBuffer,
-    format: 'JPEG',
-    quality: 0.9
-  })
-  return Buffer.from(outputBuffer)
+  // Use heic-decode to decode HEIC, then jpeg-js to encode as JPEG
+  const { width, height, data } = await heicDecode({ buffer })
+  const jpegData = jpeg.encode({ width, height, data: Buffer.from(data) }, 90)
+  return jpegData.data
 }
 
 const MAX_IMAGE_SIZE = 4.5 * 1024 * 1024 // 4.5MB to leave some margin under 5MB limit
@@ -204,7 +201,7 @@ export async function POST(request: NextRequest) {
         imageBuffer,
         mimeType,
         existingCardSummary,
-        100,
+        200,  // High card limit with Opus
         additionalInstructions || undefined,
         customPrompt || undefined
       )
@@ -214,7 +211,7 @@ export async function POST(request: NextRequest) {
         content,
         existingCardSummary,
         generateAnswers,
-        100,
+        200,  // High card limit with Opus
         additionalInstructions || undefined,
         customPrompt || undefined
       )
@@ -247,6 +244,7 @@ export async function POST(request: NextRequest) {
       const [newDeck] = await db.insert(decks).values({
         name: deckName || file.name.replace(/\.[^/.]+$/, ''),
         description: `Generated from ${file.name}`,
+        originalPrompt: additionalInstructions || null,
         sourceFileName: file.name,
         analysis: analysisJson,
         userId: session.user.id,

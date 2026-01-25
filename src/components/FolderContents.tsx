@@ -153,7 +153,9 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
     setIsDraggingOver(false)
 
     try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'))
+      const jsonData = e.dataTransfer.getData('application/json')
+      if (!jsonData) return
+      const data = JSON.parse(jsonData)
       if (data.type !== 'deck') return
 
       const res = await fetch(`/api/decks/${data.id}`, {
