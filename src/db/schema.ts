@@ -97,10 +97,11 @@ export const flashcards = pgTable('flashcards', {
   deckId: integer('deck_id').references(() => decks.id, { onDelete: 'cascade' }).notNull(),
   front: text('front').notNull(),  // Question
   back: text('back').notNull(),    // Answer
-  // Spaced repetition fields
+  // Spaced repetition fields (Enhanced SM-2)
   easeFactor: integer('ease_factor').default(250).notNull(), // 2.5 * 100 for integer storage
   interval: integer('interval').default(0).notNull(),        // Days until next review
-  repetitions: integer('repetitions').default(0).notNull(),  // Number of successful reviews
+  repetitions: integer('repetitions').default(0).notNull(),  // Number of successful reviews in review phase
+  learningStep: integer('learning_step').default(0).notNull(), // 0=new, 1=learning (1min), 2=learning (10min), 3+=graduated to review
   nextReviewAt: timestamp('next_review_at').defaultNow().notNull(),
   // Stats
   timesCorrect: integer('times_correct').default(0).notNull(),

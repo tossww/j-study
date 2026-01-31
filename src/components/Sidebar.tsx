@@ -51,8 +51,6 @@ const navItems = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg>
     ),
-    disabled: true,
-    tooltip: 'Coming soon',
   },
 ]
 
@@ -142,25 +140,6 @@ export default function Sidebar({ collapsed, width, onToggle, onResizeStart, isR
         <ul className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
-
-            if (item.disabled) {
-              return (
-                <li key={item.name}>
-                  <div
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 cursor-not-allowed ${
-                      collapsed ? 'justify-center' : ''
-                    }`}
-                    title={item.tooltip}
-                  >
-                    {item.icon}
-                    {!collapsed && <span className="text-sm">{item.name}</span>}
-                    {!collapsed && (
-                      <span className="ml-auto text-xs bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-                    )}
-                  </div>
-                </li>
-              )
-            }
 
             return (
               <li key={item.name}>

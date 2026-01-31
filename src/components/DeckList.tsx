@@ -29,7 +29,21 @@ interface DeckListProps {
   selectMode?: boolean
   selectedDecks?: number[]
   onSelectionChange?: (deckIds: number[]) => void
+  showControls?: boolean
 }
+
+type SortOption = 'recent' | 'oldest' | 'name-asc' | 'name-desc' | 'cards-desc' | 'cards-asc' | 'accuracy-desc' | 'accuracy-asc'
+
+const sortOptions: { value: SortOption; label: string }[] = [
+  { value: 'recent', label: 'Recently Updated' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'name-asc', label: 'Name (A-Z)' },
+  { value: 'name-desc', label: 'Name (Z-A)' },
+  { value: 'cards-desc', label: 'Most Cards' },
+  { value: 'cards-asc', label: 'Fewest Cards' },
+  { value: 'accuracy-desc', label: 'Best Accuracy' },
+  { value: 'accuracy-asc', label: 'Needs Practice' },
+]
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString)
@@ -47,7 +61,7 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function DeckList({ folderId, selectMode = false, selectedDecks = [], onSelectionChange }: DeckListProps = {}) {
+export default function DeckList({ folderId, selectMode = false, selectedDecks = [], onSelectionChange, showControls = true }: DeckListProps = {}) {
   const router = useRouter()
   const [decks, setDecks] = useState<Deck[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
@@ -60,6 +74,10 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
   const [draggingId, setDraggingId] = useState<number | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
   const moveMenuRef = useRef<HTMLDivElement>(null)
+
+  // Search and sort states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<SortOption>('recent')
 
   useEffect(() => {
     async function fetchData() {
@@ -290,9 +308,115 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
     )
   }
 
+  // Filter and sort decks
+  const filteredDecks = decks
+    .filter(deck => {
+      if (!searchQuery.trim()) return true
+      const query = searchQuery.toLowerCase()
+      return (
+        deck.name.toLowerCase().includes(query) ||
+        deck.description?.toLowerCase().includes(query) ||
+        deck.sourceFileName?.toLowerCase().includes(query)
+      )
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'recent':
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        case 'oldest':
+          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+        case 'name-asc':
+          return a.name.localeCompare(b.name)
+        case 'name-desc':
+          return b.name.localeCompare(a.name)
+        case 'cards-desc':
+          return b.cardCount - a.cardCount
+        case 'cards-asc':
+          return a.cardCount - b.cardCount
+        case 'accuracy-desc':
+          return (b.accuracy ?? -1) - (a.accuracy ?? -1)
+        case 'accuracy-asc':
+          // Cards with no accuracy (never studied) should be at top for "needs practice"
+          if (a.accuracy === null && b.accuracy !== null) return -1
+          if (b.accuracy === null && a.accuracy !== null) return 1
+          return (a.accuracy ?? 0) - (b.accuracy ?? 0)
+        default:
+          return 0
+      }
+    })
+
   return (
-    <div className="grid gap-2">
-      {decks.map((deck, index) => (
+    <div>
+      {/* Search and Sort Controls */}
+      {showControls && decks.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search decks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Sort Dropdown */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="appearance-none w-full sm:w-auto pl-4 pr-10 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-200 focus:border-primary-300 cursor-pointer"
+            >
+              {sortOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <svg
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Results count when searching */}
+      {searchQuery && (
+        <p className="text-sm text-gray-500 mb-3">
+          {filteredDecks.length === 0
+            ? 'No decks found'
+            : `${filteredDecks.length} deck${filteredDecks.length !== 1 ? 's' : ''} found`
+          }
+        </p>
+      )}
+
+      {/* Deck Grid */}
+      <div className="grid gap-2">
+      {filteredDecks.map((deck, index) => (
         <div
           key={deck.id}
           draggable={!selectMode}
@@ -396,6 +520,16 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </Link>
+              <Link
+                href={`/study?deck=${deck.id}&trouble=true`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                title="Practice trouble cards"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </Link>
               <Link
@@ -553,6 +687,7 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
           </div>
         </div>
       ))}
+      </div>
     </div>
   )
 }

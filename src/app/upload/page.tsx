@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import FileUpload from '@/components/FileUpload'
 
-export default function UploadPage() {
+function UploadPageContent() {
   const searchParams = useSearchParams()
   const folderId = searchParams.get('folderId')
   const backUrl = folderId ? `/?folderId=${folderId}` : '/'
@@ -24,5 +25,17 @@ export default function UploadPage() {
         <p>Just describe what you want to study, or add a file for context</p>
       </div>
     </div>
+  )
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    }>
+      <UploadPageContent />
+    </Suspense>
   )
 }

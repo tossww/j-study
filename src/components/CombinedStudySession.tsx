@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import Flashcard from './Flashcard'
+import Flashcard, { SRSGrade } from './Flashcard'
 import type { Flashcard as FlashcardType } from '@/db/schema'
 
 interface Deck {
@@ -22,8 +22,8 @@ interface CombinedStudySessionProps {
 
 // Check if a card is "weak" (New or Learning)
 function isWeakCard(card: FlashcardType): boolean {
-  const { repetitions, interval } = card
-  return repetitions === 0 || repetitions <= 2 || interval <= 3
+  const { repetitions, interval, learningStep } = card
+  return learningStep < 3 || repetitions <= 2 || interval <= 3
 }
 
 // Check if a card is a "trouble" card (high error rate)
@@ -106,19 +106,22 @@ export default function CombinedStudySession({ deckIds, weakOnly = false, troubl
     fetchCards()
   }, [deckIds, weakOnly, troubleOnly])
 
-  const handleResult = async (correct: boolean) => {
+  const isViewingPrevious = currentIndex < answeredUpTo + 1 && currentIndex <= answeredUpTo
+
+  const handleResult = useCallback(async (grade: SRSGrade) => {
     const card = cards[currentIndex]
+    const isCorrect = grade !== 'again'
 
     setStats(prev => ({
-      correct: prev.correct + (correct ? 1 : 0),
-      incorrect: prev.incorrect + (correct ? 0 : 1),
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      incorrect: prev.incorrect + (isCorrect ? 0 : 1),
     }))
 
     try {
       await fetch('/api/study', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardId: card.id, correct }),
+        body: JSON.stringify({ cardId: card.id, grade }),
       })
     } catch {
       console.error('Failed to save progress')
@@ -131,7 +134,30 @@ export default function CombinedStudySession({ deckIds, weakOnly = false, troubl
     } else {
       setCompleted(true)
     }
-  }
+  }, [cards, currentIndex])
+
+  // Keyboard shortcuts for grading
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isViewingPrevious || !cards.length) return
+
+      const gradeMap: Record<string, SRSGrade> = {
+        '1': 'again',
+        '2': 'hard',
+        '3': 'good',
+        '4': 'easy'
+      }
+
+      const grade = gradeMap[e.key]
+      if (grade) {
+        e.preventDefault()
+        handleResult(grade)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isViewingPrevious, cards.length, handleResult])
 
   const goToPreviousCard = () => {
     if (currentIndex > 0) {
@@ -144,8 +170,6 @@ export default function CombinedStudySession({ deckIds, weakOnly = false, troubl
       setCurrentIndex(prev => prev + 1)
     }
   }
-
-  const isViewingPrevious = currentIndex < answeredUpTo + 1 && currentIndex <= answeredUpTo
 
   const restartSession = () => {
     setCurrentIndex(0)
@@ -326,6 +350,7 @@ export default function CombinedStudySession({ deckIds, weakOnly = false, troubl
             repetitions: currentCard.repetitions,
             interval: currentCard.interval,
             easeFactor: currentCard.easeFactor,
+            learningStep: currentCard.learningStep,
           }}
           viewOnly={isViewingPrevious}
         />

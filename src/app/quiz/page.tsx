@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -75,7 +75,7 @@ function WrittenAnswerInput({ onSubmit, initialValue = '', questionId }: { onSub
   )
 }
 
-export default function QuizPage() {
+function QuizPageContent() {
   const searchParams = useSearchParams()
   // Support multiple deck params: ?deck=1&deck=2&deck=3
   const deckIdParams = searchParams.getAll('deck')
@@ -811,4 +811,18 @@ export default function QuizPage() {
   }
 
   return null
+}
+
+export default function QuizPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+      </div>
+    }>
+      <QuizPageContent />
+    </Suspense>
+  )
 }

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import Flashcard from './Flashcard'
+import Flashcard, { SRSGrade } from './Flashcard'
 
 interface TroubleCard {
   id: number
@@ -18,6 +18,7 @@ interface TroubleCard {
   repetitions: number
   interval: number
   easeFactor: number
+  learningStep: number
 }
 
 export default function TroubleStudySession() {
@@ -49,13 +50,14 @@ export default function TroubleStudySession() {
     fetchTroubleCards()
   }, [])
 
-  const handleResult = async (correct: boolean) => {
+  const handleResult = useCallback(async (grade: SRSGrade) => {
     const card = cards[currentIndex]
+    const isCorrect = grade !== 'again'
 
     // Update stats
     setStats(prev => ({
-      correct: prev.correct + (correct ? 1 : 0),
-      incorrect: prev.incorrect + (correct ? 0 : 1),
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      incorrect: prev.incorrect + (isCorrect ? 0 : 1),
     }))
 
     // Send result to server
@@ -63,7 +65,7 @@ export default function TroubleStudySession() {
       await fetch('/api/study', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardId: card.id, correct }),
+        body: JSON.stringify({ cardId: card.id, grade }),
       })
     } catch {
       console.error('Failed to save progress')
@@ -75,7 +77,30 @@ export default function TroubleStudySession() {
     } else {
       setCompleted(true)
     }
-  }
+  }, [cards, currentIndex])
+
+  // Keyboard shortcuts for grading
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!cards.length || completed) return
+
+      const gradeMap: Record<string, SRSGrade> = {
+        '1': 'again',
+        '2': 'hard',
+        '3': 'good',
+        '4': 'easy'
+      }
+
+      const grade = gradeMap[e.key]
+      if (grade) {
+        e.preventDefault()
+        handleResult(grade)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [cards.length, completed, handleResult])
 
   const restartSession = () => {
     setCurrentIndex(0)
@@ -207,7 +232,8 @@ export default function TroubleStudySession() {
         srsData={{
           repetitions: currentCard.repetitions || 0,
           interval: currentCard.interval || 0,
-          easeFactor: currentCard.easeFactor || 2.5,
+          easeFactor: currentCard.easeFactor || 250,
+          learningStep: currentCard.learningStep || 0,
         }}
       />
 

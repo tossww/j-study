@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import Flashcard from './Flashcard'
+import Flashcard, { SRSGrade } from './Flashcard'
 import ReferencePanel, { ReferenceFile } from './ReferencePanel'
 import type { Flashcard as FlashcardType } from '@/db/schema'
 
@@ -15,9 +15,9 @@ interface StudySessionProps {
 
 // Check if a card is "weak" (New or Learning)
 function isWeakCard(card: FlashcardType): boolean {
-  const { repetitions, interval } = card
-  // New or Learning cards
-  return repetitions === 0 || repetitions <= 2 || interval <= 3
+  const { repetitions, interval, learningStep } = card
+  // New, Learning, or Young cards
+  return learningStep < 3 || repetitions <= 2 || interval <= 3
 }
 
 // Check if a card is a "trouble" card (high error rate)
@@ -103,13 +103,14 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     fetchReferenceFiles()
   }, [deckId])
 
-  const handleResult = async (correct: boolean) => {
+  const handleResult = useCallback(async (grade: SRSGrade) => {
     const card = cards[currentIndex]
+    const isCorrect = grade !== 'again'
 
     // Update stats
     setStats(prev => ({
-      correct: prev.correct + (correct ? 1 : 0),
-      incorrect: prev.incorrect + (correct ? 0 : 1),
+      correct: prev.correct + (isCorrect ? 1 : 0),
+      incorrect: prev.incorrect + (isCorrect ? 0 : 1),
     }))
 
     // Send result to server
@@ -117,7 +118,7 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
       await fetch('/api/study', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardId: card.id, correct }),
+        body: JSON.stringify({ cardId: card.id, grade }),
       })
     } catch {
       console.error('Failed to save progress')
@@ -132,7 +133,7 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     } else {
       setCompleted(true)
     }
-  }
+  }, [cards, currentIndex])
 
   const goToPreviousCard = () => {
     if (currentIndex > 0) {
@@ -148,6 +149,30 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
 
   // Check if we're viewing a previous card (view-only mode)
   const isViewingPrevious = currentIndex < answeredUpTo + 1 && currentIndex <= answeredUpTo
+
+  // Keyboard shortcuts for grading (1=Again, 2=Hard, 3=Good, 4=Easy)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if not editing and not viewing previous card
+      if (editing || isViewingPrevious || !cards.length) return
+
+      const gradeMap: Record<string, SRSGrade> = {
+        '1': 'again',
+        '2': 'hard',
+        '3': 'good',
+        '4': 'easy'
+      }
+
+      const grade = gradeMap[e.key]
+      if (grade) {
+        e.preventDefault()
+        handleResult(grade)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [editing, isViewingPrevious, cards.length, handleResult])
 
   const restartSession = () => {
     setCurrentIndex(0)
@@ -389,6 +414,7 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
             repetitions: cards[currentIndex].repetitions,
             interval: cards[currentIndex].interval,
             easeFactor: cards[currentIndex].easeFactor,
+            learningStep: cards[currentIndex].learningStep,
           }}
           viewOnly={isViewingPrevious}
           reverseMode={reverseMode}

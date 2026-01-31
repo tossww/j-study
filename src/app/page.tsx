@@ -31,7 +31,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </Suspense>
 
           {/* Quick actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
             <Link
               href="/upload"
               className="group p-6 bg-gradient-to-br from-primary-50 to-accent-lavender rounded-2xl border border-primary-100 hover:shadow-soft transition-all"
@@ -62,6 +62,23 @@ export default async function Home({ searchParams }: HomeProps) {
                 <div>
                   <h3 className="font-semibold text-gray-900">Study Now</h3>
                   <p className="text-sm text-gray-500">Continue where you left off</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link
+              href="/study?trouble=true"
+              className="group p-6 bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl border border-red-100 hover:shadow-soft transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Struggle Mode</h3>
+                  <p className="text-sm text-gray-500">Practice your hardest cards</p>
                 </div>
               </div>
             </Link>

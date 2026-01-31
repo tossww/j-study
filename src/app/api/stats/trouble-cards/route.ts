@@ -29,6 +29,7 @@ export async function GET(request: Request) {
         repetitions: flashcards.repetitions,
         interval: flashcards.interval,
         easeFactor: flashcards.easeFactor,
+        learningStep: flashcards.learningStep,
         // Calculate error rate as a percentage
         errorRate: sql<number>`
           CASE
