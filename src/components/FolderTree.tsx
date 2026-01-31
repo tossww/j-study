@@ -31,6 +31,8 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
   const [creatingIn, setCreatingIn] = useState<number | null | 'root'>(null)
   const [newFolderName, setNewFolderName] = useState('')
   const [dragOverFolderId, setDragOverFolderId] = useState<number | null | 'root'>(null)
+  const [draggingFolderId, setDraggingFolderId] = useState<number | null>(null)
+  const [dropTargetIndex, setDropTargetIndex] = useState<{ parentId: number | null; index: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -51,22 +53,18 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  async function fetchFolders() {
+  async function fetchFolders(preserveExpanded = false) {
     try {
       const res = await fetch('/api/folders')
       if (res.ok) {
         const data = await res.json()
         setFolders(data)
-        // Auto-expand folders that contain the current folder
-        if (currentFolderId) {
-          const expandedSet = new Set<number>()
-          let folder = data.find((f: Folder) => f.id === parseInt(currentFolderId))
-          while (folder?.parentId) {
-            expandedSet.add(folder.parentId)
-            folder = data.find((f: Folder) => f.id === folder.parentId)
-          }
-          setExpanded(expandedSet)
+        // Preserve expanded state if requested (e.g., after reordering)
+        if (preserveExpanded) {
+          // Keep current expanded state
+          return
         }
+        // Start with all folders collapsed (empty set)
       }
     } catch (error) {
       console.error('Error fetching folders:', error)
@@ -203,12 +201,71 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
         body: JSON.stringify({ folderId, direction, parentId }),
       })
       if (res.ok) {
-        fetchFolders()
+        fetchFolders(true) // Preserve expanded state
       }
     } catch (error) {
       console.error('Error reordering folder:', error)
     }
     setMenuOpen(null)
+  }
+
+  async function moveFolderToPosition(folderId: number, targetParentId: number | null, targetIndex: number) {
+    try {
+      const res = await fetch('/api/folders/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId, targetParentId, targetIndex }),
+      })
+      if (res.ok) {
+        fetchFolders(true) // Preserve expanded state
+      }
+    } catch (error) {
+      console.error('Error moving folder:', error)
+    }
+  }
+
+  // Folder drag handlers
+  const isDraggingRef = useRef(false)
+
+  function handleFolderDragStart(e: React.DragEvent, folder: Folder) {
+    e.stopPropagation()
+    isDraggingRef.current = true
+    setDraggingFolderId(folder.id)
+    e.dataTransfer.setData('application/json', JSON.stringify({ type: 'folder', id: folder.id, parentId: folder.parentId }))
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleFolderDragEnd() {
+    // Small delay to prevent click from firing after drag
+    setTimeout(() => {
+      isDraggingRef.current = false
+    }, 100)
+    setDraggingFolderId(null)
+    setDropTargetIndex(null)
+  }
+
+  function handleFolderClick(folderId: number) {
+    // Don't navigate if we just finished dragging
+    if (isDraggingRef.current) return
+    selectFolder(folderId)
+  }
+
+  function handleFolderDropZone(e: React.DragEvent, parentId: number | null, index: number) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropTargetIndex(null)
+
+    try {
+      const jsonData = e.dataTransfer.getData('application/json')
+      if (!jsonData) return
+      const data = JSON.parse(jsonData)
+      if (data.type !== 'folder') return
+      if (data.id === parentId) return // Can't drop into itself
+
+      moveFolderToPosition(data.id, parentId, index)
+    } catch (error) {
+      console.error('Error handling folder drop:', error)
+    }
   }
 
   // Drag and drop handlers for moving decks into folders
@@ -235,7 +292,10 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
     setDragOverFolderId(null)
 
     try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'))
+      const jsonData = e.dataTransfer.getData('application/json')
+      if (!jsonData) return
+
+      const data = JSON.parse(jsonData)
       if (data.type !== 'deck') return
 
       const res = await fetch(`/api/decks/${data.id}`, {
@@ -274,12 +334,53 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
     setExpanded(prev => new Set(prev).add(parentId))
   }
 
-  function renderNode(node: TreeNode, level: number = 0): React.ReactNode {
+  function renderDropZone(parentId: number | null, index: number, level: number): React.ReactNode {
+    const isActive = dropTargetIndex?.parentId === parentId && dropTargetIndex?.index === index
+    const isDragging = draggingFolderId !== null
+
+    if (!isDragging) return null
+
+    return (
+      <div
+        className="relative py-1"
+        style={{ marginLeft: `${level * 8 + (level > 0 ? 8 : 0)}px`, marginRight: '8px' }}
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDropTargetIndex({ parentId, index })
+        }}
+        onDragLeave={(e) => {
+          const relatedTarget = e.relatedTarget as HTMLElement
+          if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+            setDropTargetIndex(null)
+          }
+        }}
+        onDrop={(e) => handleFolderDropZone(e, parentId, index)}
+      >
+        <div className={`h-0.5 rounded-full transition-all ${
+          isActive ? 'bg-primary-500 h-1' : 'bg-gray-200'
+        }`} />
+      </div>
+    )
+  }
+
+  function renderNode(node: TreeNode, level: number = 0, index: number = 0, siblings: TreeNode[] = []): React.ReactNode {
     const isExpanded = expanded.has(node.id)
     const hasChildren = node.children.length > 0
     const isSelected = currentFolderId === String(node.id)
     const isEditing = editingId === node.id
-    const canCreateSubfolder = node.depth < 2
+    const canCreateSubfolder = node.depth < 4
+    const isDragging = draggingFolderId === node.id
+
+    // Color coding by depth level
+    const depthColors = [
+      { folder: 'text-amber-500', border: 'border-l-amber-400', bg: 'bg-amber-50' },
+      { folder: 'text-blue-500', border: 'border-l-blue-400', bg: 'bg-blue-50' },
+      { folder: 'text-emerald-500', border: 'border-l-emerald-400', bg: 'bg-emerald-50' },
+      { folder: 'text-purple-500', border: 'border-l-purple-400', bg: 'bg-purple-50' },
+      { folder: 'text-rose-500', border: 'border-l-rose-400', bg: 'bg-rose-50' },
+    ]
+    const colorScheme = depthColors[node.depth % depthColors.length]
 
     if (collapsed) {
       // In collapsed mode, just show folder icon for root folders
@@ -305,18 +406,23 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
     }
 
     return (
-      <div key={node.id}>
+      <div key={node.id} className={`${level > 0 ? 'ml-2' : ''} ${index > 0 ? 'mt-0.5' : ''}`}>
+        {/* Drop zone before this folder */}
+        {index === 0 && renderDropZone(node.parentId, 0, level)}
         <div
-          className={`group flex items-center gap-1 py-1.5 px-2 rounded-lg cursor-pointer transition-colors ${
-            isSelected ? 'bg-primary-100 text-primary-700' : 'hover:bg-gray-100 text-gray-700'
-          } ${dragOverFolderId === node.id ? 'bg-amber-100 ring-2 ring-amber-400 ring-inset' : ''}`}
-          style={{ paddingLeft: `${8 + level * 16}px` }}
-          onClick={() => selectFolder(node.id)}
+          className={`group flex items-center gap-1.5 py-1.5 px-2 rounded-lg transition-colors border-l-2 ${colorScheme.border} ${
+            isSelected ? `${colorScheme.bg} text-gray-900` : 'hover:bg-gray-50 text-gray-700'
+          } ${dragOverFolderId === node.id ? 'bg-amber-100 ring-2 ring-amber-400 ring-inset' : ''} ${
+            isDragging ? 'opacity-50' : ''
+          }`}
+          style={{ marginLeft: `${level * 8}px` }}
+          onClick={() => handleFolderClick(node.id)}
           onDragOver={handleDragOver}
           onDragEnter={(e) => handleDragEnter(e, node.id)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, node.id)}
         >
+
           {/* Expand/collapse button */}
           <button
             onClick={(e) => toggleExpand(node.id, e)}
@@ -335,7 +441,7 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
           </button>
 
           {/* Folder icon */}
-          <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-4 h-4 ${colorScheme.folder} flex-shrink-0`} fill="currentColor" viewBox="0 0 24 24">
             <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
           </svg>
 
@@ -431,10 +537,13 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
           )}
         </div>
 
+        {/* Drop zone after this folder */}
+        {renderDropZone(node.parentId, index + 1, level)}
+
         {/* Children */}
         {isExpanded && (
           <div>
-            {node.children.map(child => renderNode(child, level + 1))}
+            {node.children.map((child, childIndex) => renderNode(child, level + 1, childIndex, node.children))}
             {/* New subfolder input */}
             {creatingIn === node.id && (
               <div
@@ -501,7 +610,7 @@ export default function FolderTree({ collapsed = false, onFolderSelect }: Folder
       )}
 
       {/* Folder tree */}
-      {tree.map(node => renderNode(node))}
+      {tree.map((node, index) => renderNode(node, 0, index, tree))}
 
       {/* New folder at root input */}
       {creatingIn === 'root' && !collapsed && (

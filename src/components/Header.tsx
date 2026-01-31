@@ -5,11 +5,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
-  sidebarCollapsed: boolean
+  sidebarWidth: number
   onMobileMenuClick?: () => void
 }
 
-export default function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderProps) {
+export default function Header({ sidebarWidth, onMobileMenuClick }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
 
@@ -21,11 +21,15 @@ export default function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderPr
   }
 
   return (
-    <header
-      className={`fixed top-0 right-0 h-16 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-30 transition-all duration-300 left-0 md:left-auto ${
-        sidebarCollapsed ? 'md:left-16' : 'md:left-56'
-      }`}
-    >
+    <>
+      <style>{`
+        @media (min-width: 768px) {
+          .app-header { left: ${sidebarWidth}px !important; }
+        }
+      `}</style>
+      <header
+        className="app-header fixed top-0 right-0 h-16 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-30 transition-all duration-300 left-0"
+      >
       <div className="h-full px-4 md:px-6 flex items-center justify-between gap-4">
         {/* Mobile menu button */}
         <button
@@ -77,5 +81,6 @@ export default function Header({ sidebarCollapsed, onMobileMenuClick }: HeaderPr
         </div>
       </div>
     </header>
+    </>
   )
 }

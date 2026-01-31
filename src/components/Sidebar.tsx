@@ -35,6 +35,15 @@ const navItems = [
     ),
   },
   {
+    name: 'Quiz History',
+    href: '/quiz/history',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
     name: 'Stats',
     href: '/stats',
     icon: (
@@ -62,12 +71,15 @@ const bottomItems = [
 
 interface SidebarProps {
   collapsed: boolean
+  width: number
   onToggle: () => void
+  onResizeStart: () => void
+  isResizing: boolean
   mobileOpen?: boolean
   onMobileClose?: () => void
 }
 
-export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
+export default function Sidebar({ collapsed, width, onToggle, onResizeStart, isResizing, mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const [foldersExpanded, setFoldersExpanded] = useState(true)
   const { data: session } = useSession()
@@ -78,11 +90,12 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full bg-surface-sidebar border-r border-gray-100 transition-all duration-300 z-40 flex flex-col ${
-        collapsed ? 'w-16' : 'w-56'
+      className={`fixed left-0 top-0 h-full bg-surface-sidebar border-r border-gray-100 z-40 flex flex-col ${
+        isResizing ? '' : 'transition-all duration-300'
       } ${
         mobileOpen ? 'translate-x-0' : '-translate-x-full'
       } md:translate-x-0`}
+      style={{ width: `${width}px` }}
     >
       {/* Logo */}
       <div className="p-4 flex items-center gap-3">
@@ -226,10 +239,19 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         </ul>
       </div>
 
+      {/* Resize handle */}
+      <div
+        onMouseDown={onResizeStart}
+        className="absolute right-0 top-0 w-1 h-full cursor-ew-resize hover:bg-primary-400 transition-colors group"
+        title="Drag to resize"
+      >
+        <div className="absolute right-0 top-0 w-2 h-full group-hover:bg-primary-200/50" />
+      </div>
+
       {/* Collapse toggle */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors"
+        className="absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors z-10"
       >
         <svg
           className={`w-3 h-3 text-gray-600 transition-transform ${collapsed ? 'rotate-180' : ''}`}

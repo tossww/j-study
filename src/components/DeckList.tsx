@@ -58,6 +58,7 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
   const [movingId, setMovingId] = useState<number | null>(null)
   const [expandedMoveFolder, setExpandedMoveFolder] = useState<number | null>(null)
   const [draggingId, setDraggingId] = useState<number | null>(null)
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
   const moveMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -176,7 +177,52 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
   }
 
   const handleDragEnd = () => {
-    setDraggingId(null)
+    // Small delay to prevent click from firing after drag
+    setTimeout(() => {
+      setDraggingId(null)
+      setDropTargetIndex(null)
+    }, 100)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDropTargetIndex(index)
+  }
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    setDropTargetIndex(null)
+
+    if (draggingId === null) return
+
+    const draggedDeck = decks.find(d => d.id === draggingId)
+    if (!draggedDeck) return
+
+    const currentIndex = decks.findIndex(d => d.id === draggingId)
+    if (currentIndex === targetIndex) return
+
+    // Optimistically update UI
+    const newDecks = [...decks]
+    newDecks.splice(currentIndex, 1)
+    newDecks.splice(targetIndex, 0, draggedDeck)
+    setDecks(newDecks)
+
+    // Call API to persist the new order
+    try {
+      await fetch('/api/decks/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deckId: draggingId,
+          targetIndex,
+          folderId: folderId ?? null,
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to reorder deck:', error)
+      // Revert on error
+      setDecks(decks)
+    }
   }
 
   const handleDeckClick = (deckId: number) => {
@@ -245,16 +291,46 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
   }
 
   return (
-    <div className="grid gap-3">
-      {decks.map((deck) => (
+    <div className="grid gap-2">
+      {decks.map((deck, index) => (
         <div
           key={deck.id}
           draggable={!selectMode}
-          onDragStart={(e) => !selectMode && handleDragStart(e, deck)}
-          onDragEnd={handleDragEnd}
-          onClick={() => handleDeckClick(deck.id)}
-          className={`group relative p-4 bg-white rounded-2xl shadow-soft border transition-all cursor-pointer ${
+          onDragStart={(e) => {
+            if (selectMode) return
+            // Set both formats: text/plain for reordering, application/json for folder drops
+            e.dataTransfer.setData('text/plain', deck.id.toString())
+            e.dataTransfer.setData('application/json', JSON.stringify({
+              type: 'deck',
+              id: deck.id,
+              name: deck.name,
+            }))
+            e.dataTransfer.effectAllowed = 'move'
+            setDraggingId(deck.id)
+          }}
+          onDragEnd={() => {
+            setDraggingId(null)
+            setDropTargetIndex(null)
+          }}
+          onDragOver={(e) => {
+            e.preventDefault()
+            if (draggingId !== null && draggingId !== deck.id) {
+              setDropTargetIndex(index)
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            if (draggingId !== null && draggingId !== deck.id) {
+              handleDrop(e, index)
+            }
+          }}
+          onClick={() => !draggingId && handleDeckClick(deck.id)}
+          className={`group relative p-4 bg-white rounded-2xl shadow-soft border transition-all ${
+            selectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+          } ${
             draggingId === deck.id ? 'opacity-50 scale-95' : ''
+          } ${
+            dropTargetIndex === index && draggingId !== deck.id ? 'border-primary-400 border-2' : ''
           } ${
             selectMode && selectedDecks.includes(deck.id)
               ? 'border-primary-400 bg-primary-50 shadow-soft-lg'
@@ -277,7 +353,7 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
                   )}
                 </div>
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-accent-lavender flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-accent-lavender flex items-center justify-center flex-shrink-0 cursor-grab active:cursor-grabbing">
                   <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                   </svg>
@@ -302,6 +378,16 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
             </div>
             {!selectMode && (
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Link
+                href={`/quiz?deck=${deck.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
+                title="Take a quiz"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </Link>
               <Link
                 href={`/study?deck=${deck.id}&weak=true`}
                 onClick={(e) => e.stopPropagation()}

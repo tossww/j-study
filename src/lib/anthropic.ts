@@ -137,23 +137,20 @@ export interface AnalysisResult {
   analysis: DeckAnalysis
 }
 
-export async function generateFlashcards(content: string, maxCards: number = 100): Promise<GeneratedFlashcard[]> {
-  const prompt = `You are a study assistant that creates EXHAUSTIVE flashcard sets from educational content. Your goal is to capture ALL information.
+export async function generateFlashcards(content: string, maxCards: number = 30): Promise<GeneratedFlashcard[]> {
+  const prompt = `You are a study assistant that creates focused, high-quality flashcard sets from educational content.
 
-Analyze the following content and create up to ${maxCards} flashcards. For EACH concept, create MULTIPLE cards covering:
+Analyze the following content and create flashcards covering the KEY concepts:
 - Definitions ("What is X?")
 - Explanations ("How does X work?")
-- Examples ("Give an example of X")
-- Comparisons ("Difference between X and Y?")
-- Applications ("When would you use X?")
-- Specific details (facts, numbers, dates, formulas)
+- Important facts and details
 
-RULES:
-- Extract EVERY fact, concept, term, and detail
-- Create separate cards for each distinct piece of information
-- Include all examples, definitions, formulas, and lists
-- If there's a list, create a card for EACH item
-- Better to have more cards than to miss information
+CRITICAL RULES - MATCH CARDS TO CONTENT:
+- Create ONE card for EACH distinct concept, fact, term, or piece of information
+- Small content = few cards, large content = many cards
+- DON'T skip anything - every important fact needs its own card
+- DON'T pad or invent - only create cards for actual content
+- DON'T duplicate - each concept gets exactly one card
 
 Return your response as a JSON array with objects containing "front" and "back" fields.
 Return ONLY the JSON array, no other text.
@@ -180,7 +177,7 @@ export async function analyzeAndGenerateFlashcards(
   content: string,
   existingCards?: ExistingCardSummary,
   generateAnswers: boolean = false,
-  maxCards: number = 100,
+  maxCards: number = 30,
   additionalInstructions?: string,
   customPrompt?: string
 ): Promise<AnalysisResult> {
@@ -213,7 +210,9 @@ ${additionalInstructions}
   const prompt = `${basePrompt}
 
 PARAMETERS:
-- Maximum cards to generate: ${maxCards}
+- Create cards proportional to the content - more info = more cards, less info = fewer cards
+- One card per concept/fact - cover EVERYTHING important
+- Don't invent or pad - only use information from the content
 ${existingCards ? '- IMPORTANT: Avoid creating cards that duplicate existing topics' : ''}
 ${generateAnswersInstruction}
 ${userInstructions}
@@ -256,7 +255,7 @@ export async function analyzeImageAndGenerateFlashcards(
   imageBuffer: Buffer,
   mimeType: ImageMimeType,
   existingCards?: ExistingCardSummary,
-  maxCards: number = 100,
+  maxCards: number = 30,
   additionalInstructions?: string,
   customPrompt?: string
 ): Promise<AnalysisResult> {
@@ -282,29 +281,27 @@ ${additionalInstructions}
 
   const prompt = `${basePrompt}
 
-You are analyzing an IMAGE. Your goal is to extract EVERY piece of information and create EXHAUSTIVE flashcards. Leave nothing out.
+You are analyzing an IMAGE. Extract the key information and create focused, high-quality flashcards.
 
 PARAMETERS:
-- Maximum cards to generate: ${maxCards} (use as many as needed to capture ALL info)
+- Create cards proportional to image content - more info = more cards, less info = fewer cards
+- One card per concept/fact - cover EVERYTHING visible in the image
+- Don't invent or pad - only use information actually in the image
 ${existingCards ? '- IMPORTANT: Avoid creating cards that duplicate existing topics' : ''}
 ${userInstructions}
 ${existingCardsContext}
 
-EXTRACT EVERYTHING from the image:
-- ALL visible text, notes, handwriting, or typed content
-- Every label, caption, annotation, and heading
-- All data from diagrams, charts, tables, and graphs
-- Formulas, equations, and mathematical expressions
-- Lists (create a card for EACH item)
-- Definitions, terms, and vocabulary
-- Examples and specific details
-- Relationships shown between concepts
+EXTRACT KEY INFO from the image:
+- Important text, notes, and content
+- Key labels, headings, and terms
+- Data from diagrams, charts, and tables
+- Formulas and equations
+- Definitions and vocabulary
 
-For EACH concept found, create MULTIPLE cards:
-- Definition: "What is X?"
-- Explanation: "How does X work?"
-- Details: Specific facts, numbers, formulas
-- Relationships: "How does X relate to Y?"
+Create clear, focused cards covering:
+- Definitions: "What is X?"
+- Key concepts and relationships
+- Important facts and details
 
 Return your response as valid JSON with this exact structure:
 {
@@ -366,7 +363,7 @@ export interface SmartOperationResult {
 export async function generateFromInstructions(
   instructions: string,
   existingCards?: ExistingCardSummary,
-  maxCards: number = 100,
+  maxCards: number = 30,
   customPrompt?: string,
   currentDeckName?: string
 ): Promise<SimpleGenerationResult> {
@@ -381,7 +378,7 @@ ${existingCards.sampleCards.slice(0, 3).map(c => `  Q: ${c.front}\n  A: ${c.back
 `
     : ''
 
-  const basePrompt = customPrompt || `You are a smart study assistant that creates EXHAUSTIVE flashcard sets. You understand user intent and can either generate flashcards OR suggest deck names based on what they ask. When generating cards, capture ALL information with multiple cards per concept.`
+  const basePrompt = customPrompt || `You are a smart study assistant that creates focused, high-quality flashcard sets. You understand user intent and can either generate flashcards OR suggest deck names based on what they ask.`
 
   const isNewDeck = !existingCards
 
@@ -399,7 +396,11 @@ INSTRUCTIONS:
    - If they want BOTH (e.g., "create cards about cats and name the deck"), set action to "both"
 
 2. Based on the action:
-   - For "generate_cards" or "both": Generate up to ${maxCards} flashcards - be EXHAUSTIVE, capture ALL information with multiple cards per concept (definitions, explanations, examples, details)
+   - For "generate_cards" or "both": Generate flashcards covering ALL key concepts
+     * Create a card for every distinct concept, fact, or detail
+     * Don't skip information - cover everything important
+     * Don't pad with filler or invent information
+     * Maximum ${maxCards} cards
    - For "suggest_name" or "both": Suggest a short, descriptive deck name (2-5 words)
    ${isNewDeck ? '- This is a NEW deck, so always include "deckName"' : ''}
 

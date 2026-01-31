@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { deckId, deckName, instructions, customPrompt } = body
+    const { deckId, deckName, instructions, customPrompt, folderId } = body
 
     if (!instructions?.trim()) {
       return NextResponse.json({ error: 'Instructions required' }, { status: 400 })
@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
       name: finalName,
       description: `Generated from: "${instructions.trim().slice(0, 100)}${instructions.length > 100 ? '...' : ''}"`,
       userId: session.user.id,
+      folderId: folderId || null,
     }).returning()
 
     // Insert flashcards

@@ -12,14 +12,76 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { folderId, direction, parentId } = body as {
+    const { folderId, direction, parentId, targetParentId, targetIndex } = body as {
       folderId: number
-      direction: 'up' | 'down'
-      parentId: number | null
+      direction?: 'up' | 'down'
+      parentId?: number | null
+      targetParentId?: number | null
+      targetIndex?: number
     }
 
-    if (!folderId || !direction) {
-      return NextResponse.json({ error: 'folderId and direction required' }, { status: 400 })
+    if (!folderId) {
+      return NextResponse.json({ error: 'folderId required' }, { status: 400 })
+    }
+
+    // Position-based reordering (drag and drop)
+    if (targetIndex !== undefined) {
+      // Get the folder being moved
+      const [folder] = await db.select().from(folders).where(eq(folders.id, folderId))
+      if (!folder) {
+        return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
+      }
+
+      // Get siblings at target location
+      const siblings = await db
+        .select()
+        .from(folders)
+        .where(and(
+          targetParentId === null || targetParentId === undefined
+            ? isNull(folders.parentId)
+            : eq(folders.parentId, targetParentId),
+          or(eq(folders.userId, session.user.id), isNull(folders.userId))
+        ))
+        .orderBy(folders.sortOrder, folders.name)
+
+      // Filter out the folder being moved (if it's in same group)
+      const filteredSiblings = siblings.filter(s => s.id !== folderId)
+
+      // Calculate new depth if parent changed
+      let newDepth = 0
+      if (targetParentId !== null && targetParentId !== undefined) {
+        const [parentFolder] = await db.select().from(folders).where(eq(folders.id, targetParentId))
+        if (parentFolder) {
+          newDepth = parentFolder.depth + 1
+          if (newDepth > 4) {
+            return NextResponse.json({ error: 'Maximum folder nesting depth reached' }, { status: 400 })
+          }
+        }
+      }
+
+      // Reassign sortOrder for all siblings with new folder inserted at targetIndex
+      for (let i = 0; i < filteredSiblings.length; i++) {
+        const newOrder = i < targetIndex ? i : i + 1
+        await db.update(folders)
+          .set({ sortOrder: newOrder })
+          .where(eq(folders.id, filteredSiblings[i].id))
+      }
+
+      // Update the moved folder
+      await db.update(folders)
+        .set({
+          sortOrder: targetIndex,
+          parentId: targetParentId ?? null,
+          depth: newDepth
+        })
+        .where(eq(folders.id, folderId))
+
+      return NextResponse.json({ success: true })
+    }
+
+    // Direction-based reordering (up/down buttons)
+    if (!direction) {
+      return NextResponse.json({ error: 'direction or targetIndex required' }, { status: 400 })
     }
 
     // Get all sibling folders (same parentId)
@@ -27,7 +89,9 @@ export async function POST(request: NextRequest) {
       .select()
       .from(folders)
       .where(and(
-        parentId === null ? isNull(folders.parentId) : eq(folders.parentId, parentId),
+        parentId === null || parentId === undefined
+          ? isNull(folders.parentId)
+          : eq(folders.parentId, parentId),
         or(eq(folders.userId, session.user.id), isNull(folders.userId))
       ))
       .orderBy(folders.sortOrder, folders.name)

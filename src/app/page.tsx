@@ -4,6 +4,7 @@ import DeckList from '@/components/DeckList'
 import StatsBar from '@/components/StatsBar'
 import FolderContents from '@/components/FolderContents'
 import TroubleCards from '@/components/TroubleCards'
+import FolderDeckActions from '@/components/FolderDeckActions'
 
 interface HomeProps {
   searchParams: Promise<{ folderId?: string }>
@@ -91,6 +92,11 @@ export default async function Home({ searchParams }: HomeProps) {
               View all
             </Link>
           </div>
+        )}
+        {isInFolder && (
+          <Suspense fallback={null}>
+            <FolderDeckActions folderId={folderId} />
+          </Suspense>
         )}
         <Suspense fallback={<div className="h-48 bg-white rounded-2xl animate-pulse" />}>
           <DeckList folderId={isInFolder ? folderId : undefined} />

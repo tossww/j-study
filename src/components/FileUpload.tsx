@@ -15,7 +15,11 @@ interface UploadResponse {
   isNewDeck?: boolean
 }
 
-export default function FileUpload() {
+interface FileUploadProps {
+  folderId?: number
+}
+
+export default function FileUpload({ folderId }: FileUploadProps) {
   const [files, setFiles] = useState<File[]>([])
   const [deckName, setDeckName] = useState('')
   const [instructions, setInstructions] = useState('')
@@ -128,8 +132,13 @@ export default function FileUpload() {
 
           if (currentDeckId) {
             formData.append('deckId', currentDeckId.toString())
-          } else if (deckName) {
-            formData.append('deckName', deckName)
+          } else {
+            if (deckName) {
+              formData.append('deckName', deckName)
+            }
+            if (folderId) {
+              formData.append('folderId', folderId.toString())
+            }
           }
 
           // Only add instructions to the first file
@@ -168,6 +177,7 @@ export default function FileUpload() {
             deckName: deckName || undefined,
             instructions: instructions.trim(),
             customPrompt: customPrompt || undefined,
+            folderId: folderId || undefined,
           }),
         })
 

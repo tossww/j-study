@@ -72,10 +72,10 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Check depth limit (max 3 levels: 0, 1, 2)
-      if (parentFolder.depth >= 2) {
+      // Check depth limit (max 5 levels: 0, 1, 2, 3, 4)
+      if (parentFolder.depth >= 4) {
         return NextResponse.json(
-          { error: 'Maximum folder nesting depth reached (3 levels)' },
+          { error: 'Maximum folder nesting depth reached (5 levels)' },
           { status: 400 }
         )
       }

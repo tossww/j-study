@@ -52,7 +52,7 @@ export const verificationTokens = pgTable('verification_tokens', {
 // APPLICATION TABLES
 // ============================================
 
-// Folders table - organize decks into hierarchy (max 3 levels)
+// Folders table - organize decks into hierarchy (max 5 levels)
 export const folders = pgTable('folders', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
@@ -73,6 +73,7 @@ export const decks = pgTable('decks', {
   sourceFileName: text('source_file_name'),
   analysis: text('analysis'), // JSON string with AI feedback
   folderId: integer('folder_id').references(() => folders.id, { onDelete: 'set null' }),
+  sortOrder: integer('sort_order').default(0).notNull(), // For ordering decks within a folder
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }), // nullable for migration
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -129,6 +130,22 @@ export const referenceFiles = pgTable('reference_files', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+// Saved quizzes table - for retaking quizzes
+export const savedQuizzes = pgTable('saved_quizzes', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  sourceType: text('source_type').notNull(), // 'deck' | 'decks' | 'content'
+  sourceName: text('source_name'),
+  deckIds: text('deck_ids'), // JSON array of deck IDs if from decks
+  questions: text('questions').notNull(), // JSON string of questions
+  customInstructions: text('custom_instructions'),
+  lastScore: integer('last_score'), // Last score percentage
+  timesTaken: integer('times_taken').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  lastTakenAt: timestamp('last_taken_at'),
+})
+
 // Types for TypeScript
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -144,3 +161,5 @@ export type StudySession = typeof studySessions.$inferSelect
 export type NewStudySession = typeof studySessions.$inferInsert
 export type ReferenceFile = typeof referenceFiles.$inferSelect
 export type NewReferenceFile = typeof referenceFiles.$inferInsert
+export type SavedQuiz = typeof savedQuizzes.$inferSelect
+export type NewSavedQuiz = typeof savedQuizzes.$inferInsert

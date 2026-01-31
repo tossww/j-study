@@ -39,12 +39,12 @@ export async function GET(
       )
     }
 
-    // Get subfolders
+    // Get subfolders (same order as sidebar: sortOrder, then name)
     const subfolders = await db
       .select()
       .from(folders)
       .where(eq(folders.parentId, folderId))
-      .orderBy(folders.name)
+      .orderBy(folders.sortOrder, folders.name)
 
     // Get decks in this folder
     const folderDecks = await db
@@ -165,9 +165,9 @@ export async function PATCH(
         const subtreeDepth = await getSubtreeMaxDepth(folderId)
         const depthIncrease = newDepth - existingFolder.depth
 
-        if (subtreeDepth + depthIncrease > 2) {
+        if (subtreeDepth + depthIncrease > 4) {
           return NextResponse.json(
-            { error: 'Moving would exceed maximum folder nesting depth (3 levels)' },
+            { error: 'Moving would exceed maximum folder nesting depth (5 levels)' },
             { status: 400 }
           )
         }

@@ -1,218 +1,186 @@
-import { NextResponse } from 'next/server'
-import { db } from '@/db'
-import { flashcards, decks } from '@/db/schema'
+import { NextRequest, NextResponse } from 'next/server'
+import { db, decks, flashcards } from '@/db'
 import { eq, and, or, isNull } from 'drizzle-orm'
 import { auth } from '@/auth'
 
-export type QuizMode = 'multiple-choice' | 'fill-blank' | 'typed'
+const MODEL = 'claude-opus-4-5-20251101'
+const API_URL = 'https://api.anthropic.com/v1/messages'
 
-export interface QuizQuestion {
+interface QuizQuestion {
   id: number
-  type: QuizMode
+  type: 'multiple_choice' | 'written'
   question: string
+  options?: string[]
   correctAnswer: string
-  options?: string[] // for multiple choice
-  blankedAnswer?: string // for fill-in-blank (answer with ___ for blanks)
-  blankWord?: string // the word that was blanked out
+  explanation?: string
 }
 
-// Use AI to generate plausible wrong answers
-async function generateWrongOptionsWithAI(
-  questions: { question: string; correctAnswer: string }[]
-): Promise<Map<string, string[]>> {
-  const results = new Map<string, string[]>()
+interface GenerateQuizRequest {
+  content?: string
+  deckId?: number
+  deckIds?: number[]
+  questionCount?: number
+  mixRatio?: number
+  customInstructions?: string
+}
 
-  if (questions.length === 0) return results
+async function callAnthropic(prompt: string): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY!,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 8192,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
 
-  try {
-    const prompt = `Generate 3 plausible but INCORRECT answers for each question below. The wrong answers should:
-- Be related to the topic/subject matter
-- Sound believable but be factually wrong
-- Be similar in length and style to the correct answer
-- NOT be obviously wrong or silly
-
-Return ONLY a JSON object with questions as keys and arrays of 3 wrong answers as values.
-
-Questions:
-${questions.map((q, i) => `${i + 1}. Question: "${q.question}"\n   Correct Answer: "${q.correctAnswer}"`).join('\n\n')}
-
-Return format:
-{
-  "question text here": ["wrong1", "wrong2", "wrong3"],
-  ...
-}`
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-
-    if (!response.ok) {
-      console.error('AI distractor generation failed:', await response.text())
-      return results
-    }
-
-    const data = await response.json()
-    const content = data.content[0]?.text || ''
-
-    // Extract JSON from response
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0])
-      for (const [question, wrongAnswers] of Object.entries(parsed)) {
-        if (Array.isArray(wrongAnswers) && wrongAnswers.length >= 3) {
-          results.set(question, wrongAnswers.slice(0, 3) as string[])
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error generating distractors:', error)
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Anthropic API error: ${response.status} - ${error}`)
   }
 
-  return results
+  const data = await response.json()
+  const textContent = data.content.find((block: { type: string }) => block.type === 'text')
+  return textContent?.text || ''
 }
 
-// Fallback: generate simple wrong options without AI
-function generateFallbackOptions(correctAnswer: string): string[] {
-  // Create variations that are clearly wrong but not placeholder text
-  const fallbacks = [
-    `Not ${correctAnswer}`,
-    'None of the above',
-    'All of the above',
-  ]
-  return fallbacks
-}
-
-// Create fill-in-the-blank by blanking out a key word
-function createFillInBlank(answer: string): { blankedAnswer: string; blankWord: string } | null {
-  // Split into words and find a good word to blank (longer than 3 chars)
-  const words = answer.split(/\s+/)
-  const candidates = words.filter(w => w.length > 3 && /^[a-zA-Z]+$/.test(w))
-
-  if (candidates.length === 0) {
-    // Just blank the last word if no good candidates
-    if (words.length > 0) {
-      const lastWord = words[words.length - 1].replace(/[^a-zA-Z]/g, '')
-      if (lastWord.length > 0) {
-        const blankedAnswer = answer.replace(new RegExp(lastWord, 'i'), '_____')
-        return { blankedAnswer, blankWord: lastWord }
-      }
-    }
-    return null
+function parseJsonResponse(text: string): unknown {
+  let jsonText = text.trim()
+  if (jsonText.startsWith('```json')) {
+    jsonText = jsonText.slice(7)
+  } else if (jsonText.startsWith('```')) {
+    jsonText = jsonText.slice(3)
   }
-
-  // Pick a random candidate
-  const blankWord = candidates[Math.floor(Math.random() * candidates.length)]
-  const blankedAnswer = answer.replace(new RegExp(`\\b${blankWord}\\b`, 'i'), '_____')
-
-  return { blankedAnswer, blankWord }
+  if (jsonText.endsWith('```')) {
+    jsonText = jsonText.slice(0, -3)
+  }
+  return JSON.parse(jsonText.trim())
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { deckId, modes, count } = await request.json()
+    const body: GenerateQuizRequest = await request.json()
+    const { content, deckId, deckIds, questionCount = 10, mixRatio = 0.5, customInstructions } = body
 
-    if (!deckId || !modes || !Array.isArray(modes) || modes.length === 0) {
-      return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
-    }
+    // Support both single deckId and multiple deckIds
+    const allDeckIds = deckIds || (deckId ? [deckId] : [])
 
-    // Verify deck belongs to user
-    const [deck] = await db
-      .select()
-      .from(decks)
-      .where(and(
-        eq(decks.id, deckId),
-        or(eq(decks.userId, session.user.id), isNull(decks.userId))
-      ))
-
-    if (!deck) {
-      return NextResponse.json({ error: 'Deck not found' }, { status: 404 })
-    }
-
-    // Fetch flashcards for the deck
-    const cards = await db
-      .select()
-      .from(flashcards)
-      .where(eq(flashcards.deckId, deckId))
-
-    if (cards.length === 0) {
-      return NextResponse.json({ error: 'No flashcards found' }, { status: 404 })
-    }
-
-    // Shuffle cards and take the requested count
-    const shuffledCards = [...cards].sort(() => Math.random() - 0.5)
-    const selectedCards = shuffledCards.slice(0, Math.min(count || 10, cards.length))
-
-    // Determine which cards need multiple choice options
-    const mcCards = selectedCards.filter((_, i) => {
-      const mode = modes[i % modes.length] as QuizMode
-      return mode === 'multiple-choice'
-    })
-
-    // Generate AI distractors for multiple choice questions
-    let distractorMap = new Map<string, string[]>()
-    if (mcCards.length > 0 && modes.includes('multiple-choice')) {
-      distractorMap = await generateWrongOptionsWithAI(
-        mcCards.map(c => ({ question: c.front, correctAnswer: c.back }))
+    if (!content && allDeckIds.length === 0) {
+      return NextResponse.json(
+        { error: 'Either content or deckId(s) is required' },
+        { status: 400 }
       )
     }
 
-    // Generate questions
-    const questions: QuizQuestion[] = []
+    let sourceContent = content || ''
+    let deckName = 'Custom Quiz'
 
-    for (let i = 0; i < selectedCards.length; i++) {
-      const card = selectedCards[i]
+    if (allDeckIds.length > 0) {
+      const deckNames: string[] = []
+      const allCards: { front: string; back: string }[] = []
 
-      // Pick a mode based on index to ensure even distribution
-      const mode = modes[i % modes.length] as QuizMode
+      for (const id of allDeckIds) {
+        const [deck] = await db.select().from(decks).where(and(
+          eq(decks.id, id),
+          or(eq(decks.userId, session.user.id), isNull(decks.userId))
+        ))
 
-      const baseQuestion: QuizQuestion = {
-        id: card.id,
-        type: mode,
-        question: card.front,
-        correctAnswer: card.back,
+        if (!deck) {
+          return NextResponse.json({ error: `Deck ${id} not found` }, { status: 404 })
+        }
+
+        deckNames.push(deck.name)
+
+        const cards = await db
+          .select({ front: flashcards.front, back: flashcards.back })
+          .from(flashcards)
+          .where(eq(flashcards.deckId, id))
+
+        allCards.push(...cards)
       }
 
-      if (mode === 'multiple-choice') {
-        // Try to get AI-generated distractors, fall back if not available
-        let wrongOptions = distractorMap.get(card.front)
-        if (!wrongOptions || wrongOptions.length < 3) {
-          wrongOptions = generateFallbackOptions(card.back)
-        }
-        const allOptions = [card.back, ...wrongOptions].sort(() => Math.random() - 0.5)
-        baseQuestion.options = allOptions
-      } else if (mode === 'fill-blank') {
-        const fillBlank = createFillInBlank(card.back)
-        if (fillBlank) {
-          baseQuestion.blankedAnswer = fillBlank.blankedAnswer
-          baseQuestion.blankWord = fillBlank.blankWord
-        } else {
-          // Fall back to typed if can't create fill-in-blank
-          baseQuestion.type = 'typed'
-        }
+      if (allCards.length === 0) {
+        return NextResponse.json({ error: 'Selected decks have no cards' }, { status: 400 })
       }
-      // typed questions don't need extra processing
 
-      questions.push(baseQuestion)
+      deckName = allDeckIds.length === 1 ? deckNames[0] : `${deckNames.length} Decks Combined`
+      sourceContent = allCards.map(c => `Q: ${c.front}\nA: ${c.back}`).join('\n\n')
     }
 
-    return NextResponse.json({ questions })
+    const mcCount = Math.round(questionCount * mixRatio)
+    const writtenCount = questionCount - mcCount
+
+    const customSection = customInstructions
+      ? `\nCUSTOM INSTRUCTIONS FROM USER:\n${customInstructions}\n`
+      : ''
+
+    const prompt = `You are a test generator. Create a quiz from the following content.
+
+CONTENT:
+${sourceContent}
+${customSection}
+REQUIREMENTS:
+- Generate exactly ${mcCount} multiple choice questions
+- Generate exactly ${writtenCount} written/short answer questions
+- Multiple choice: 4 options (A, B, C, D) with one correct answer
+- Written: clear, concise expected answers
+- Test understanding, not just memorization
+- Vary difficulty: easy, medium, hard
+- Include brief explanations
+${customInstructions ? '- IMPORTANT: Follow the custom instructions provided above' : ''}
+
+Return JSON:
+{
+  "title": "Quiz title",
+  "questions": [
+    {
+      "id": 1,
+      "type": "multiple_choice",
+      "question": "What is...?",
+      "options": ["A) First", "B) Second", "C) Third", "D) Fourth"],
+      "correctAnswer": "A",
+      "explanation": "Why A is correct"
+    },
+    {
+      "id": 2,
+      "type": "written",
+      "question": "Explain...",
+      "correctAnswer": "Expected answer",
+      "explanation": "What good answer includes"
+    }
+  ]
+}
+
+Return ONLY JSON, no other text.`
+
+    const responseText = await callAnthropic(prompt)
+    const result = parseJsonResponse(responseText) as { title: string; questions: QuizQuestion[] }
+
+    return NextResponse.json({
+      success: true,
+      quiz: {
+        title: result.title || deckName,
+        sourceType: deckId ? 'deck' : 'content',
+        sourceName: deckId ? deckName : 'Pasted content',
+        questions: result.questions,
+        questionCount: result.questions.length,
+      }
+    })
   } catch (error) {
     console.error('Quiz generation error:', error)
-    return NextResponse.json({ error: 'Failed to generate quiz' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Failed to generate quiz' },
+      { status: 500 }
+    )
   }
 }

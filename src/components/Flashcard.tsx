@@ -49,7 +49,7 @@ export default function Flashcard({ front, back, onResult, onEdit, srsData, view
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto">
+    <div className="w-full max-w-2xl mx-auto">
       {/* SRS Level Badge */}
       <div className="flex justify-center mb-3">
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${srsLevel.bgColor} ${srsLevel.color}`}>
@@ -62,18 +62,18 @@ export default function Flashcard({ front, back, onResult, onEdit, srsData, view
 
       {/* Flashcard */}
       <div
-        className="flip-card h-64 cursor-pointer"
+        className="flip-card h-96 cursor-pointer"
         onClick={handleFlip}
       >
         <div className={`flip-card-inner relative w-full h-full ${flipped ? 'flipped' : ''}`}>
           {/* Front of card */}
-          <div className="flip-card-front absolute w-full h-full bg-white rounded-xl shadow-lg p-6 flex items-center justify-center">
-            <p className="text-xl text-center text-gray-800">{front}</p>
+          <div className="flip-card-front absolute w-full h-full bg-white rounded-xl shadow-lg p-6 flex items-center justify-center overflow-y-auto">
+            <p className="text-xl text-center text-gray-800 whitespace-pre-wrap">{front}</p>
           </div>
 
           {/* Back of card */}
-          <div className="flip-card-back absolute w-full h-full bg-primary-50 rounded-xl shadow-lg p-6 flex items-center justify-center">
-            <p className="text-xl text-center text-gray-800">{back}</p>
+          <div className="flip-card-back absolute w-full h-full bg-primary-50 rounded-xl shadow-lg p-6 flex items-center justify-center overflow-y-auto">
+            <p className="text-xl text-center text-gray-800 whitespace-pre-wrap">{back}</p>
           </div>
         </div>
       </div>

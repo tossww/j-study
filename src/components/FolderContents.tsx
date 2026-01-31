@@ -12,6 +12,19 @@ interface Folder {
   deckCount?: number
 }
 
+// Color coding by depth level (same as FolderTree)
+const depthColors = [
+  { folder: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-200', hoverBorder: 'hover:border-amber-300' },
+  { folder: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200', hoverBorder: 'hover:border-blue-300' },
+  { folder: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200', hoverBorder: 'hover:border-emerald-300' },
+  { folder: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200', hoverBorder: 'hover:border-purple-300' },
+  { folder: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-200', hoverBorder: 'hover:border-rose-300' },
+]
+
+function getColorScheme(depth: number) {
+  return depthColors[depth % depthColors.length]
+}
+
 interface FolderContentsProps {
   folderId: number
 }
@@ -204,7 +217,7 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
     }
   }
 
-  const canCreateSubfolder = folder && folder.depth < 2
+  const canCreateSubfolder = folder && folder.depth < 4
 
   if (loading) {
     return <div className="h-12 bg-white rounded-xl animate-pulse mb-6" />
@@ -301,11 +314,16 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
       {/* Folder title */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-            <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-            </svg>
-          </div>
+          {(() => {
+            const titleColorScheme = getColorScheme(folder.depth)
+            return (
+              <div className={`w-10 h-10 rounded-xl ${titleColorScheme.bg} flex items-center justify-center`}>
+                <svg className={`w-5 h-5 ${titleColorScheme.folder}`} fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                </svg>
+              </div>
+            )
+          })()}
           <div>
             {isRenaming ? (
               <input
@@ -366,67 +384,84 @@ export default function FolderContents({ folderId }: FolderContentsProps) {
         <div className="mb-6">
           <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Subfolders</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {subfolders.map((subfolder) => (
-              <Link
-                key={subfolder.id}
-                href={`/?folderId=${subfolder.id}`}
-                onDragOver={handleDragOver}
-                onDragEnter={(e) => handleDragEnter(e, subfolder.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  handleDrop(e, subfolder.id)
-                }}
-                className={`flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:border-primary-200 hover:shadow-soft transition-all ${
-                  dragOverFolderId === subfolder.id ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-400' : ''
-                }`}
-              >
-                <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-                  </svg>
-                </div>
-                <span className="text-sm font-medium text-gray-700 truncate">{subfolder.name}</span>
-              </Link>
-            ))}
+            {subfolders.map((subfolder) => {
+              const colorScheme = getColorScheme(subfolder.depth)
+              return (
+                <Link
+                  key={subfolder.id}
+                  href={`/?folderId=${subfolder.id}`}
+                  onDragOver={handleDragOver}
+                  onDragEnter={(e) => handleDragEnter(e, subfolder.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    handleDrop(e, subfolder.id)
+                  }}
+                  className={`flex items-center gap-3 p-3 bg-white rounded-xl border ${colorScheme.border} ${colorScheme.hoverBorder} hover:shadow-soft transition-all ${
+                    dragOverFolderId === subfolder.id ? 'ring-2 ring-amber-400' : ''
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg ${colorScheme.bg} flex items-center justify-center flex-shrink-0`}>
+                    <svg className={`w-4 h-4 ${colorScheme.folder}`} fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium text-gray-700 truncate">{subfolder.name}</span>
+                </Link>
+              )
+            })}
             {/* New subfolder input */}
-            {creatingSubfolder && (
-              <div className="flex items-center gap-2 p-3 bg-white rounded-xl border-2 border-amber-200">
-                <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-                  </svg>
+            {creatingSubfolder && folder && (() => {
+              const newFolderColorScheme = getColorScheme(folder.depth + 1)
+              return (
+                <div className={`flex items-center gap-2 p-3 bg-white rounded-xl border-2 ${newFolderColorScheme.border}`}>
+                  <div className={`w-8 h-8 rounded-lg ${newFolderColorScheme.bg} flex items-center justify-center flex-shrink-0`}>
+                    <svg className={`w-4 h-4 ${newFolderColorScheme.folder} opacity-60`} fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') createSubfolder()
+                      if (e.key === 'Escape') {
+                        setCreatingSubfolder(false)
+                        setNewFolderName('')
+                      }
+                    }}
+                    onBlur={() => {
+                      if (newFolderName.trim()) createSubfolder()
+                      else {
+                        setCreatingSubfolder(false)
+                        setNewFolderName('')
+                      }
+                    }}
+                    placeholder="Folder name"
+                    className="flex-1 text-sm bg-transparent border-none outline-none placeholder-gray-400"
+                    autoFocus
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') createSubfolder()
-                    if (e.key === 'Escape') {
-                      setCreatingSubfolder(false)
-                      setNewFolderName('')
-                    }
-                  }}
-                  onBlur={() => {
-                    if (newFolderName.trim()) createSubfolder()
-                    else {
-                      setCreatingSubfolder(false)
-                      setNewFolderName('')
-                    }
-                  }}
-                  placeholder="Folder name"
-                  className="flex-1 text-sm bg-transparent border-none outline-none placeholder-gray-400"
-                  autoFocus
-                />
-              </div>
-            )}
+              )
+            })()}
           </div>
         </div>
       )}
 
       {/* Decks header */}
-      <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Decks in this folder</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Decks in this folder</h2>
+        <Link
+          href={`/upload?folderId=${folderId}`}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          New Deck
+        </Link>
+      </div>
     </div>
   )
 }

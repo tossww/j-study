@@ -91,9 +91,11 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null
     const deckName = formData.get('deckName') as string | null
     const deckIdStr = formData.get('deckId') as string | null
+    const folderIdStr = formData.get('folderId') as string | null
     const generateAnswers = formData.get('generateAnswers') === 'true'
     const additionalInstructions = formData.get('additionalInstructions') as string | null
     const customPrompt = formData.get('customPrompt') as string | null
+    const folderId = folderIdStr ? parseInt(folderIdStr) : null
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -201,7 +203,7 @@ export async function POST(request: NextRequest) {
         imageBuffer,
         mimeType,
         existingCardSummary,
-        200,  // High card limit with Opus
+        100,
         additionalInstructions || undefined,
         customPrompt || undefined
       )
@@ -211,7 +213,7 @@ export async function POST(request: NextRequest) {
         content,
         existingCardSummary,
         generateAnswers,
-        200,  // High card limit with Opus
+        100,
         additionalInstructions || undefined,
         customPrompt || undefined
       )
@@ -248,6 +250,7 @@ export async function POST(request: NextRequest) {
         sourceFileName: file.name,
         analysis: analysisJson,
         userId: session.user.id,
+        folderId: folderId,
       }).returning()
       targetDeck = newDeck
     }
