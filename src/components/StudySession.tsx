@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Flashcard, { SRSGrade } from './Flashcard'
 import ReferencePanel, { ReferenceFile } from './ReferencePanel'
@@ -28,15 +29,17 @@ function isTroubleCard(card: FlashcardType): boolean {
 }
 
 export default function StudySession({ deckId, deckName, weakOnly = false, troubleOnly = false }: StudySessionProps) {
+  const router = useRouter()
   const [cards, setCards] = useState<FlashcardType[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answeredUpTo, setAnsweredUpTo] = useState(-1) // Track furthest answered card
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState({ correct: 0, incorrect: 0 })
+  const [stats, setStats] = useState({ correct: 0, incorrect: 0, again: 0, hard: 0, good: 0, easy: 0 })
   const [completed, setCompleted] = useState(false)
   const [reverseMode, setReverseMode] = useState(false) // Show answer first, guess question
   const [shuffled, setShuffled] = useState(false)
+  const [startTime] = useState(() => Date.now())
 
   // Edit modal state
   const [editing, setEditing] = useState(false)
@@ -111,6 +114,10 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     setStats(prev => ({
       correct: prev.correct + (isCorrect ? 1 : 0),
       incorrect: prev.incorrect + (isCorrect ? 0 : 1),
+      again: prev.again + (grade === 'again' ? 1 : 0),
+      hard: prev.hard + (grade === 'hard' ? 1 : 0),
+      good: prev.good + (grade === 'good' ? 1 : 0),
+      easy: prev.easy + (grade === 'easy' ? 1 : 0),
     }))
 
     // Send result to server
@@ -174,10 +181,37 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [editing, isViewingPrevious, cards.length, handleResult])
 
+  // Keyboard shortcuts for navigation (Escape, Arrow keys)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (editing) return
+
+      // Escape to exit
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        router.push('/study')
+        return
+      }
+
+      // Arrow keys for navigation
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        e.preventDefault()
+        goToPreviousCard()
+      }
+      if (e.key === 'ArrowRight' && isViewingPrevious) {
+        e.preventDefault()
+        goToNextCard()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [editing, currentIndex, isViewingPrevious, router])
+
   const restartSession = () => {
     setCurrentIndex(0)
     setAnsweredUpTo(-1)
-    setStats({ correct: 0, incorrect: 0 })
+    setStats({ correct: 0, incorrect: 0, again: 0, hard: 0, good: 0, easy: 0 })
     setCompleted(false)
   }
 
@@ -187,7 +221,7 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
       if (!confirm('Shuffling will restart your session. Continue?')) return
       setCurrentIndex(0)
       setAnsweredUpTo(-1)
-      setStats({ correct: 0, incorrect: 0 })
+      setStats({ correct: 0, incorrect: 0, again: 0, hard: 0, good: 0, easy: 0 })
     }
     setCards(prev => [...prev].sort(() => Math.random() - 0.5))
     setShuffled(true)
@@ -264,39 +298,89 @@ export default function StudySession({ deckId, deckName, weakOnly = false, troub
   }
 
   if (completed) {
-    const accuracy = Math.round((stats.correct / (stats.correct + stats.incorrect)) * 100)
+    const total = stats.correct + stats.incorrect
+    const accuracy = total > 0 ? Math.round((stats.correct / total) * 100) : 0
+    const timeSpent = Math.round((Date.now() - startTime) / 1000)
+    const minutes = Math.floor(timeSpent / 60)
+    const seconds = timeSpent % 60
+    const timeString = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
+    const avgTimePerCard = total > 0 ? Math.round(timeSpent / total) : 0
 
     return (
-      <div className="text-center p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Session Complete!</h2>
-
-        <div className="flex justify-center gap-8 mb-6">
-          <div className="text-center">
-            <p className="text-4xl font-bold text-green-600">{stats.correct}</p>
-            <p className="text-gray-600">Correct</p>
-          </div>
-          <div className="text-center">
-            <p className="text-4xl font-bold text-red-600">{stats.incorrect}</p>
-            <p className="text-gray-600">Incorrect</p>
-          </div>
-          <div className="text-center">
-            <p className="text-4xl font-bold text-primary-600">{accuracy}%</p>
-            <p className="text-gray-600">Accuracy</p>
+      <div className="max-w-md mx-auto p-8">
+        {/* Success Icon */}
+        <div className="flex justify-center mb-6">
+          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
         </div>
 
-        <div className="flex gap-4 justify-center">
+        <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Session Complete!</h2>
+        <p className="text-gray-500 text-center mb-6">{deckName}</p>
+
+        {/* Main Stats */}
+        <div className="bg-white rounded-2xl shadow-soft p-6 mb-4">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-3xl font-bold text-gray-900">{total}</p>
+              <p className="text-sm text-gray-500">Cards</p>
+            </div>
+            <div>
+              <p className={`text-3xl font-bold ${accuracy >= 70 ? 'text-green-600' : accuracy >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                {accuracy}%
+              </p>
+              <p className="text-sm text-gray-500">Accuracy</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-gray-900">{timeString}</p>
+              <p className="text-sm text-gray-500">Time</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Grade Breakdown */}
+        <div className="bg-white rounded-2xl shadow-soft p-6 mb-6">
+          <p className="text-sm font-medium text-gray-700 mb-3">Grade Breakdown</p>
+          <div className="grid grid-cols-4 gap-2">
+            <div className="text-center p-2 bg-red-50 rounded-lg">
+              <p className="text-lg font-bold text-red-600">{stats.again}</p>
+              <p className="text-xs text-red-600">Again</p>
+            </div>
+            <div className="text-center p-2 bg-orange-50 rounded-lg">
+              <p className="text-lg font-bold text-orange-600">{stats.hard}</p>
+              <p className="text-xs text-orange-600">Hard</p>
+            </div>
+            <div className="text-center p-2 bg-green-50 rounded-lg">
+              <p className="text-lg font-bold text-green-600">{stats.good}</p>
+              <p className="text-xs text-green-600">Good</p>
+            </div>
+            <div className="text-center p-2 bg-blue-50 rounded-lg">
+              <p className="text-lg font-bold text-blue-600">{stats.easy}</p>
+              <p className="text-xs text-blue-600">Easy</p>
+            </div>
+          </div>
+          {avgTimePerCard > 0 && (
+            <p className="text-xs text-gray-400 text-center mt-3">
+              ~{avgTimePerCard}s per card
+            </p>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
           <button
             onClick={restartSession}
-            className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            className="flex-1 px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors"
           >
             Study Again
           </button>
           <Link
             href="/study"
-            className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+            className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors text-center"
           >
-            Back to Decks
+            Done
           </Link>
         </div>
       </div>

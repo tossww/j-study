@@ -71,10 +71,10 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, description, folderId } = body
+    const { name, description, folderId, isFavorite } = body
 
     // At least one field must be provided
-    if (name === undefined && description === undefined && folderId === undefined) {
+    if (name === undefined && description === undefined && folderId === undefined && isFavorite === undefined) {
       return NextResponse.json(
         { error: 'At least one field is required' },
         { status: 400 }
@@ -121,12 +121,13 @@ export async function PATCH(
     }
 
     // Build update object
-    const updates: { name?: string; description?: string | null; folderId?: number | null; updatedAt: Date } = {
+    const updates: { name?: string; description?: string | null; folderId?: number | null; isFavorite?: boolean; updatedAt: Date } = {
       updatedAt: new Date(),
     }
     if (name !== undefined) updates.name = name.trim()
     if (description !== undefined) updates.description = description?.trim() || null
     if (folderId !== undefined) updates.folderId = folderId
+    if (isFavorite !== undefined) updates.isFavorite = isFavorite
 
     // Update deck
     const [updatedDeck] = await db

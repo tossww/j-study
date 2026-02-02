@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 // SRS Grade types
 export type SRSGrade = 'again' | 'hard' | 'good' | 'easy'
@@ -90,9 +90,21 @@ export default function Flashcard({ front, back, onResult, onEdit, srsData, view
   const srsLevel = getSRSLevel(srsData)
   const intervals = getIntervalPreview(srsData)
 
-  const handleFlip = () => {
-    setFlipped(!flipped)
-  }
+  const handleFlip = useCallback(() => {
+    setFlipped(f => !f)
+  }, [])
+
+  // Spacebar to flip card
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault()
+        handleFlip()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleFlip])
 
   const handleGrade = (grade: SRSGrade) => {
     setFlipped(false)
@@ -132,8 +144,8 @@ export default function Flashcard({ front, back, onResult, onEdit, srsData, view
       {/* Instructions */}
       <p className="text-center text-gray-500 text-sm mt-4 mb-4">
         {viewOnly
-          ? (flipped ? 'Reviewing previous card' : `Click card to reveal ${reverseMode ? 'question' : 'answer'}`)
-          : (flipped ? 'How well did you know this?' : `Click card to reveal ${reverseMode ? 'question' : 'answer'}`)
+          ? (flipped ? 'Reviewing previous card' : `Press Space or click to reveal ${reverseMode ? 'question' : 'answer'}`)
+          : (flipped ? 'How well did you know this?' : `Press Space or click to reveal ${reverseMode ? 'question' : 'answer'}`)
         }
       </p>
 
@@ -187,7 +199,7 @@ export default function Flashcard({ front, back, onResult, onEdit, srsData, view
           </div>
           {/* Keyboard hints */}
           <p className="text-xs text-gray-400 text-center">
-            Keyboard: 1 = Again, 2 = Hard, 3 = Good, 4 = Easy
+            Space = Flip, 1 = Again, 2 = Hard, 3 = Good, 4 = Easy
           </p>
         </div>
       )}

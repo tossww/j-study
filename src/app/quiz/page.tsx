@@ -8,6 +8,13 @@ interface Deck {
   id: number
   name: string
   cardCount: number
+  folderId: number | null
+}
+
+interface Folder {
+  id: number
+  name: string
+  parentId: number | null
 }
 
 interface QuizQuestion {
@@ -81,12 +88,15 @@ function QuizPageContent() {
   const deckIdParams = searchParams.getAll('deck')
 
   const [decks, setDecks] = useState<Deck[]>([])
+  const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(true)
   const [appState, setAppState] = useState<AppState>('source')
   const [sourceType, setSourceType] = useState<SourceType>('deck')
   const [pastedContent, setPastedContent] = useState('')
   const [selectedDeck, setSelectedDeck] = useState<number | null>(null)
   const [selectedDecks, setSelectedDecks] = useState<number[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentFolderId, setCurrentFolderId] = useState<number | null>(null)
   const [selectedModes, setSelectedModes] = useState<QuizMode[]>(['multiple-choice', 'written'])
   const [questionCount, setQuestionCount] = useState(10)
   const [customInstructions, setCustomInstructions] = useState('')
@@ -99,11 +109,15 @@ function QuizPageContent() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    async function fetchDecks() {
+    async function fetchData() {
       try {
-        const res = await fetch('/api/decks')
-        if (res.ok) {
-          const data = await res.json()
+        const [decksRes, foldersRes] = await Promise.all([
+          fetch('/api/decks'),
+          fetch('/api/folders')
+        ])
+
+        if (decksRes.ok) {
+          const data = await decksRes.json()
           const filteredDecks = data.filter((d: Deck) => d.cardCount > 0)
           setDecks(filteredDecks)
 
@@ -119,13 +133,17 @@ function QuizPageContent() {
             }
           }
         }
+
+        if (foldersRes.ok) {
+          setFolders(await foldersRes.json())
+        }
       } catch {
         // ignore
       } finally {
         setLoading(false)
       }
     }
-    fetchDecks()
+    fetchData()
   }, [deckIdParams.join(',')])
 
   const selectDeck = (deckId: number) => {
@@ -655,33 +673,171 @@ function QuizPageContent() {
               className="w-full h-48 p-4 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary-200"
             />
           ) : (
-            <div className="grid gap-2 max-h-64 overflow-y-auto">
-              {decks.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No decks available. <Link href="/upload" className="text-primary-600 hover:underline">Create one</Link></p>
-              ) : (
-                decks.map(deck => (
+            <div className="space-y-3">
+              {/* Search */}
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search decks..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-200"
+                />
+              </div>
+
+              {/* Folder breadcrumb */}
+              {!searchQuery && (
+                <div className="flex items-center gap-1 text-sm">
                   <button
-                    key={deck.id}
-                    onClick={() => setSelectedDeck(deck.id)}
-                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left ${
-                      selectedDeck === deck.id ? 'border-primary-500 bg-primary-50' : 'border-gray-100 hover:border-primary-300'
-                    }`}
+                    onClick={() => setCurrentFolderId(null)}
+                    className={`px-2 py-1 rounded hover:bg-gray-100 ${currentFolderId === null ? 'text-primary-600 font-medium' : 'text-gray-500'}`}
                   >
-                    <span className="font-medium text-gray-900">{deck.name}</span>
-                    <span className="text-sm text-gray-400">{deck.cardCount} cards</span>
+                    All Decks
                   </button>
-                ))
+                  {currentFolderId && (() => {
+                    const folder = folders.find(f => f.id === currentFolderId)
+                    const breadcrumbs: Folder[] = []
+                    let current = folder
+                    while (current) {
+                      breadcrumbs.unshift(current)
+                      current = current.parentId ? folders.find(f => f.id === current!.parentId) : undefined
+                    }
+                    return breadcrumbs.map((f, i) => (
+                      <span key={f.id} className="flex items-center gap-1">
+                        <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        <button
+                          onClick={() => setCurrentFolderId(f.id)}
+                          className={`px-2 py-1 rounded hover:bg-gray-100 ${i === breadcrumbs.length - 1 ? 'text-primary-600 font-medium' : 'text-gray-500'}`}
+                        >
+                          {f.name}
+                        </button>
+                      </span>
+                    ))
+                  })()}
+                </div>
               )}
+
+              {/* Selected count */}
+              {selectedDecks.length > 0 && (
+                <div className="flex items-center justify-between px-3 py-2 bg-primary-50 rounded-lg">
+                  <span className="text-sm text-primary-700">{selectedDecks.length} deck{selectedDecks.length > 1 ? 's' : ''} selected</span>
+                  <button onClick={() => { setSelectedDecks([]); setSelectedDeck(null) }} className="text-xs text-primary-600 hover:underline">
+                    Clear
+                  </button>
+                </div>
+              )}
+
+              {/* Folders and Decks list */}
+              <div className="max-h-72 overflow-y-auto space-y-1">
+                {/* Subfolders (only when not searching) */}
+                {!searchQuery && folders
+                  .filter(f => f.parentId === currentFolderId)
+                  .map(folder => (
+                    <button
+                      key={`folder-${folder.id}`}
+                      onClick={() => setCurrentFolderId(folder.id)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-primary-300 hover:bg-primary-50 transition-all text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <span className="font-medium text-gray-900">{folder.name}</span>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {decks.filter(d => d.folderId === folder.id).length} decks
+                        </span>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  ))}
+
+                {/* Decks */}
+                {(() => {
+                  const query = searchQuery.toLowerCase()
+                  const displayDecks = decks.filter(d => {
+                    // Search filter
+                    if (query && !d.name.toLowerCase().includes(query)) return false
+                    // Folder filter (only when a folder is selected)
+                    if (!query && currentFolderId !== null && d.folderId !== currentFolderId) return false
+                    // When at root (All Decks), show everything
+                    return true
+                  })
+
+                  if (displayDecks.length === 0 && (!searchQuery || decks.length === 0)) {
+                    return (
+                      <p className="text-gray-500 text-center py-4">
+                        {decks.length === 0 ? (
+                          <>No decks available. <Link href="/upload" className="text-primary-600 hover:underline">Create one</Link></>
+                        ) : (
+                          'No decks in this folder'
+                        )}
+                      </p>
+                    )
+                  }
+
+                  if (displayDecks.length === 0 && searchQuery) {
+                    return <p className="text-gray-500 text-center py-4">No decks match "{searchQuery}"</p>
+                  }
+
+                  return displayDecks.map(deck => {
+                    const isSelected = selectedDecks.includes(deck.id)
+                    const folderName = deck.folderId ? folders.find(f => f.id === deck.folderId)?.name : null
+                    return (
+                      <button
+                        key={deck.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedDecks(selectedDecks.filter(id => id !== deck.id))
+                            if (selectedDeck === deck.id) setSelectedDeck(selectedDecks[0] || null)
+                          } else {
+                            setSelectedDecks([...selectedDecks, deck.id])
+                            if (!selectedDeck) setSelectedDeck(deck.id)
+                          }
+                        }}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+                          isSelected ? 'border-primary-500 bg-primary-50' : 'border-gray-100 hover:border-primary-300'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                          isSelected ? 'bg-primary-500 border-primary-500' : 'border-gray-300'
+                        }`}>
+                          {isSelected && (
+                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-gray-900 block truncate">{deck.name}</span>
+                          {folderName && currentFolderId === null && (
+                            <span className="text-xs text-gray-400">in {folderName}</span>
+                          )}
+                        </div>
+                        <span className="text-sm text-gray-400 shrink-0">{deck.cardCount} cards</span>
+                      </button>
+                    )
+                  })
+                })()}
+              </div>
             </div>
           )}
         </div>
 
         <button
           onClick={() => setAppState('settings')}
-          disabled={sourceType === 'content' ? !pastedContent.trim() : !selectedDeck}
+          disabled={sourceType === 'content' ? !pastedContent.trim() : selectedDecks.length === 0}
           className="w-full py-4 bg-primary-500 text-white rounded-xl font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Continue to Settings
+          Continue with {selectedDecks.length > 0 ? `${selectedDecks.length} deck${selectedDecks.length > 1 ? 's' : ''}` : 'Settings'}
         </button>
       </div>
     )

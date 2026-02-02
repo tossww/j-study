@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useToast } from './Toast'
 
 interface Deck {
   id: number
@@ -10,6 +11,7 @@ interface Deck {
   description: string | null
   sourceFileName: string | null
   folderId: number | null
+  isFavorite: boolean
   createdAt: string
   updatedAt: string
   cardCount: number
@@ -63,11 +65,13 @@ function formatRelativeTime(dateString: string): string {
 
 export default function DeckList({ folderId, selectMode = false, selectedDecks = [], onSelectionChange, showControls = true }: DeckListProps = {}) {
   const router = useRouter()
+  const { showToast } = useToast()
   const [decks, setDecks] = useState<Deck[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; deck: Deck; timeout: NodeJS.Timeout } | null>(null)
   const [moveMenuOpen, setMoveMenuOpen] = useState<number | null>(null)
   const [movingId, setMovingId] = useState<number | null>(null)
   const [expandedMoveFolder, setExpandedMoveFolder] = useState<number | null>(null)
@@ -124,24 +128,67 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Clean up pending delete on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingDelete) {
+        clearTimeout(pendingDelete.timeout)
+        // Execute the delete immediately on unmount
+        fetch(`/api/decks/${pendingDelete.id}`, { method: 'DELETE' }).catch(() => {})
+      }
+    }
+  }, [pendingDelete])
+
   const handleDelete = async (e: React.MouseEvent, deckId: number, deckName: string) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (!confirm(`Delete "${deckName}" and all its flashcards?`)) {
-      return
+    // Find the deck to save for undo
+    const deckToDelete = decks.find(d => d.id === deckId)
+    if (!deckToDelete) return
+
+    // Cancel any pending delete
+    if (pendingDelete) {
+      clearTimeout(pendingDelete.timeout)
+      // Actually delete the previous pending one
+      fetch(`/api/decks/${pendingDelete.id}`, { method: 'DELETE' }).catch(() => {})
     }
 
-    setDeletingId(deckId)
-    try {
-      const response = await fetch(`/api/decks/${deckId}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error('Failed to delete')
-      setDecks(decks.filter(d => d.id !== deckId))
-    } catch {
-      alert('Failed to delete deck')
-    } finally {
-      setDeletingId(null)
-    }
+    // Remove from UI immediately
+    setDecks(decks.filter(d => d.id !== deckId))
+
+    // Set up delayed actual delete
+    const timeout = setTimeout(async () => {
+      try {
+        await fetch(`/api/decks/${deckId}`, { method: 'DELETE' })
+      } catch {
+        // If delete fails, restore the deck
+        setDecks(prev => [...prev, deckToDelete])
+        showToast({ message: 'Failed to delete deck', type: 'error' })
+      }
+      setPendingDelete(null)
+    }, 5000)
+
+    setPendingDelete({ id: deckId, deck: deckToDelete, timeout })
+
+    // Show toast with undo
+    showToast({
+      message: `"${deckName}" deleted`,
+      type: 'info',
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          // Cancel the delete
+          clearTimeout(timeout)
+          setPendingDelete(null)
+          // Restore the deck
+          setDecks(prev => [...prev, deckToDelete].sort((a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          ))
+          showToast({ message: 'Deck restored', type: 'success' })
+        }
+      }
+    })
   }
 
   const handleMove = async (e: React.MouseEvent, deckId: number, targetFolderId: number | null) => {
@@ -171,6 +218,28 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
       alert('Failed to move deck')
     } finally {
       setMovingId(null)
+    }
+  }
+
+  const handleToggleFavorite = async (e: React.MouseEvent, deckId: number, currentFavorite: boolean) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Optimistic update
+    setDecks(decks.map(d => d.id === deckId ? { ...d, isFavorite: !currentFavorite } : d))
+
+    try {
+      const response = await fetch(`/api/decks/${deckId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFavorite: !currentFavorite }),
+      })
+
+      if (!response.ok) throw new Error('Failed to update favorite')
+    } catch {
+      // Revert on error
+      setDecks(decks.map(d => d.id === deckId ? { ...d, isFavorite: currentFavorite } : d))
+      showToast({ message: 'Failed to update favorite', type: 'error' })
     }
   }
 
@@ -405,13 +474,27 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
       )}
 
       {/* Results count when searching */}
-      {searchQuery && (
+      {searchQuery && filteredDecks.length > 0 && (
         <p className="text-sm text-gray-500 mb-3">
-          {filteredDecks.length === 0
-            ? 'No decks found'
-            : `${filteredDecks.length} deck${filteredDecks.length !== 1 ? 's' : ''} found`
-          }
+          {filteredDecks.length} deck{filteredDecks.length !== 1 ? 's' : ''} found
         </p>
+      )}
+
+      {/* Empty search results */}
+      {searchQuery && filteredDecks.length === 0 && (
+        <div className="text-center py-12 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+          <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <p className="text-gray-500 font-medium">No decks match "{searchQuery}"</p>
+          <p className="text-sm text-gray-400 mt-1">Try a different search term</p>
+          <button
+            onClick={() => setSearchQuery('')}
+            className="mt-3 text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Clear search
+          </button>
+        </div>
       )}
 
       {/* Deck Grid */}
@@ -489,58 +572,99 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
                   <span className="text-xs text-gray-400">{deck.cardCount} cards</span>
                   <span className="text-xs text-gray-300">•</span>
                   <span className="text-xs text-gray-400">{formatRelativeTime(deck.updatedAt)}</span>
-                  {deck.accuracy !== null && (
-                    <>
-                      <span className="text-xs text-gray-300">•</span>
-                      <span className={`text-xs font-medium ${deck.accuracy >= 70 ? 'text-green-600' : deck.accuracy >= 50 ? 'text-yellow-600' : 'text-red-500'}`}>
-                        {deck.accuracy}%
-                      </span>
-                    </>
-                  )}
                 </div>
+                {/* Progress bar */}
+                {deck.totalAttempts > 0 ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          deck.accuracy !== null && deck.accuracy >= 70 ? 'bg-green-500' :
+                          deck.accuracy !== null && deck.accuracy >= 50 ? 'bg-yellow-500' :
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${deck.accuracy ?? 0}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-medium min-w-[2.5rem] text-right ${
+                      deck.accuracy !== null && deck.accuracy >= 70 ? 'text-green-600' :
+                      deck.accuracy !== null && deck.accuracy >= 50 ? 'text-yellow-600' :
+                      'text-red-500'
+                    }`}>
+                      {deck.accuracy}%
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-gray-100 rounded-full" />
+                    <span className="text-xs text-gray-400 min-w-[2.5rem] text-right">New</span>
+                  </div>
+                )}
               </div>
             </div>
             {!selectMode && (
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1">
+              {/* Favorite button - always visible if favorited */}
+              <button
+                onClick={(e) => handleToggleFavorite(e, deck.id, deck.isFavorite)}
+                className={`relative p-2 rounded-xl transition-colors group/tip ${
+                  deck.isFavorite
+                    ? 'text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50'
+                    : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                {deck.isFavorite ? (
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                )}
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none">
+                  {deck.isFavorite ? 'Unfavorite' : 'Favorite'}
+                </span>
+              </button>
               <Link
                 href={`/quiz?deck=${deck.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
-                title="Take a quiz"
+                className="relative p-2 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100 group/tip"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none">Quiz</span>
               </Link>
               <Link
                 href={`/study?deck=${deck.id}&weak=true`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-colors"
-                title="Practice weak cards"
+                className="relative p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100 group/tip"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none">Weak cards</span>
               </Link>
               <Link
                 href={`/study?deck=${deck.id}&trouble=true`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-                title="Practice trouble cards"
+                className="relative p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100 group/tip"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none">Trouble cards</span>
               </Link>
               <Link
                 href={`/edit/${deck.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-colors"
-                title="Edit deck"
+                className="relative p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-colors opacity-0 group-hover:opacity-100 group/tip"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none">Edit</span>
               </Link>
               {/* Move to folder button */}
               <div className="relative" ref={moveMenuOpen === deck.id ? moveMenuRef : null}>
@@ -557,8 +681,7 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
                     }
                   }}
                   disabled={movingId === deck.id}
-                  className="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors disabled:opacity-50"
-                  title="Move to folder"
+                  className="relative p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100 group/tip"
                 >
                   {movingId === deck.id ? (
                     <span className="block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
@@ -567,6 +690,7 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                   )}
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none">Move</span>
                 </button>
                 {/* Move dropdown - hierarchical */}
                 {moveMenuOpen === deck.id && (
@@ -671,8 +795,7 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
               <button
                 onClick={(e) => handleDelete(e, deck.id, deck.name)}
                 disabled={deletingId === deck.id}
-                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
-                title="Delete deck"
+                className="relative p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50 opacity-0 group-hover:opacity-100 group/tip"
               >
                 {deletingId === deck.id ? (
                   <span className="block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
@@ -681,6 +804,7 @@ export default function DeckList({ folderId, selectMode = false, selectedDecks =
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 )}
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity pointer-events-none">Delete</span>
               </button>
             </div>
             )}

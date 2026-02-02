@@ -74,6 +74,7 @@ export const decks = pgTable('decks', {
   analysis: text('analysis'), // JSON string with AI feedback
   folderId: integer('folder_id').references(() => folders.id, { onDelete: 'set null' }),
   sortOrder: integer('sort_order').default(0).notNull(), // For ordering decks within a folder
+  isFavorite: boolean('is_favorite').default(false).notNull(), // Starred/favorite deck
   userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }), // nullable for migration
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

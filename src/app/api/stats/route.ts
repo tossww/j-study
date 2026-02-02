@@ -42,7 +42,21 @@ export async function GET() {
       ? Math.round((totals.totalCorrect / totalAttempts) * 100)
       : null
 
+    // Get cards due today
+    const now = new Date()
+    const [dueResult] = await db
+      .select({
+        count: sql<number>`count(*)::int`,
+      })
+      .from(flashcards)
+      .innerJoin(decks, eq(flashcards.deckId, decks.id))
+      .where(sql`
+        ${flashcards.nextReviewAt} <= ${now.toISOString()}
+        AND (${decks.userId} = ${session.user.id} OR ${decks.userId} IS NULL)
+      `)
+
     return NextResponse.json({
+      cardsDue: dueResult?.count || 0,
       streak,
       totalCards: totals.totalCards,
       cardsStudied: totals.cardsStudied,

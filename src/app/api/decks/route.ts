@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
         sourceFileName: decks.sourceFileName,
         folderId: decks.folderId,
         sortOrder: decks.sortOrder,
+        isFavorite: decks.isFavorite,
         createdAt: decks.createdAt,
         updatedAt: decks.updatedAt,
         cardCount: sql<number>`count(${flashcards.id})::int`,
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
       .leftJoin(flashcards, eq(decks.id, flashcards.deckId))
       .where(whereCondition)
       .groupBy(decks.id)
-      .orderBy(decks.sortOrder, decks.name)
+      .orderBy(desc(decks.isFavorite), decks.sortOrder, decks.name)
 
     // Calculate accuracy percentage for each deck
     const decksWithAccuracy = allDecks.map(deck => {
